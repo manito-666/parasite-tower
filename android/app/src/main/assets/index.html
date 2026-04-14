@@ -3875,15 +3875,30 @@ const t=game.target;
 const baseRate=getNegBaseRate();
 const basePercent=Math.round(baseRate*100);
 // 怪物意识视觉
-const colors={rat:'#00c8a0',bat:'#b455ff',slime:'#00ffd0',guard:'#8878aa',hound:'#ff8800',spider:'#ff006e',ghost:'#8844ff',beetle:'#2d6b6b',mutant:'#ff006e',warden:'#ffcc00',queen:'#ff88ff',titan:'#ff006e'};
-const icons={rat:'🐀',bat:'🦇',slime:'🟢',guard:'🛡',hound:'🐕',spider:'🕷',ghost:'👻',beetle:'🪲',mutant:'☣',warden:'⚔',queen:'👑',titan:'💀'};
+const colors={rat:'#00c8a0',roach:'#654321',slime:'#00ffd0',dog:'#696969',gecko:'#7ccd7c',drone:'#4682b4',
+wolf:'#8b0000',spider:'#ff006e',bat:'#b455ff',wasp:'#ffa500',guard:'#8878aa',vine:'#2e8b57',
+larva:'#9acd32',mantis:'#228b22',beetle:'#2d6b6b',worm:'#cd853f',moth:'#dda0dd',scorpion:'#8b4513',hydra:'#556b2f',
+shade:'#191970',lurker:'#000080',wraith:'#483d8b',voidbeast:'#1e1e3f',nightmare:'#2f2f4f',watcher:'#0f0f2f',voiddragon:'#1a1a3a',
+titan:'#2f4f2f',chaos:'#8b0000',deathknight:'#1c1c1c',horror:'#2a0a0a',colossus:'#0a0a1a',plague:'#556b2f',origin:'#4a0a4a',
+boss1:'#aa0000',boss2:'#b8860b',boss3:'#8b008b',boss4:'#000000',boss5:'#0a0a0a'};
+const icons={rat:'🐭',roach:'🪳',slime:'🟢',dog:'🐕',gecko:'🦎',drone:'🤖',
+wolf:'🐺',spider:'🕷',bat:'🦇',wasp:'🐝',guard:'💂',vine:'🌿',
+larva:'🐛',mantis:'🦗',beetle:'🪲',worm:'🪱',moth:'🦋',scorpion:'🦂',hydra:'🐍',
+shade:'👻',lurker:'🌑',wraith:'💀',voidbeast:'🐉',nightmare:'😈',watcher:'👁',voiddragon:'🐲',
+titan:'🪨',chaos:'🌀',deathknight:'⚔',horror:'👾',colossus:'🏛',plague:'☠',origin:'🧫',
+boss1:'👹',boss2:'👹',boss3:'☢',boss4:'👿',boss5:'💀'};
 const negEl=document.getElementById('negotiate-overlay');
 const vis=document.getElementById('neg-visual');
 vis.textContent=icons[t.type]||'❓';
 vis.style.background='radial-gradient(circle,'+(colors[t.type]||'#8844ff')+'33,'+(colors[t.type]||'#8844ff')+'11)';
 vis.style.border='2px solid '+(colors[t.type]||'#8844ff');
 // 怪物意识描述
-const descs={rat:'微弱的求生意识在颤抖...',bat:'尖锐的回声在脑海中回荡...',slime:'混沌的意识流在蠕动...',guard:'残存的职责感在抵抗...',hound:'野性的忠诚在嘶吼...',spider:'冰冷的算计在编织...',ghost:'破碎的记忆在飘散...',beetle:'坚硬的意志在震动...',mutant:'扭曲的痛苦在呐喊...',warden:'钢铁般的意志在对峙...',queen:'高傲的统治欲在审视你...',titan:'远古的威压在碾压一切...'};
+const descs={rat:'微弱的求生意识在颤抖...',roach:'顽强的生存本能在蠕动...',slime:'混沌的意识流在蠕动...',dog:'野性的忠诚在嘶吼...',gecko:'灵巧的生物在墙壁间穿梭...',drone:'残余的程序在闪烁...',
+wolf:'凶残的捕猎意识在咆哮...',spider:'冰冷的算计在编织...',bat:'尖锐的回声在脑海中回荡...',wasp:'刺痛的毒意在嗡鸣...',guard:'残存的职责感在抵抗...',vine:'缠绕的生命意志在蔓延...',
+larva:'蠕动的生长意志在膨胀...',mantis:'锋利的杀意在闪烁...',beetle:'坚硬的意志在震动...',worm:'寄生的本能在蠕动...',moth:'迷幻的粉尘在飘散...',scorpion:'剧毒的意志在对峙...',hydra:'多重的意识在争夺...',
+shade:'虚无的存在在飘忽...',lurker:'黑暗中的凝视在逼近...',wraith:'怨恨的记忆在呐喊...',voidbeast:'虚空的野性在咆哮...',nightmare:'恐惧的本源在蔓延...',watcher:'深渊的注视在审判...',voiddragon:'远古的龙威在碾压...',
+titan:'远古的威压在碾压一切...',chaos:'疯狂的混沌在旋转...',deathknight:'亡灵的铁意在抗拒...',horror:'难以名状的恐惧在侵蚀...',colossus:'不可动摇的意志在镇压...',plague:'腐朽的瘟意在扩散...',origin:'原初的意识在共鸣...',
+boss1:'实验主管的权威在镇压...',boss2:'培育主管的怒意在燃烧...',boss3:'污染核心的意识在震荡...',boss4:'深渊领主的虚空在吞噬...',boss5:'真实形态的一切在共鸣...'};
 document.getElementById('neg-sub').textContent=descs[t.type]||'陌生的意识在抵抗...';
 document.getElementById('neg-base-rate').textContent='基础成功率: '+basePercent+'%';
 // 构建选项卡
@@ -6347,11 +6362,11 @@ if(e.key==='Escape'){
 // ================================================================
 // 形态记忆系统
 // ================================================================
-const formIcons={human:'👤',rat:'🐭',roach:'🪳',slime:'🟢',dog:'🐕',wasp:'🐝',wolf:'🐺',spider:'🕷',bat:'🦇',guard:'💂',boss1:'👹',
-larva:'🐛',mantis:'🦗',beetle:'🪲',worm:'🪱',moth:'🦋',scorpion:'🦂',centipede:'🐛',queen:'👑',boss2:'👹',
+const formIcons={human:'👤',rat:'🐭',roach:'🪳',slime:'🟢',dog:'🐕',gecko:'🦎',drone:'🤖',wasp:'🐝',wolf:'🐺',spider:'🕷',bat:'🦇',guard:'💂',vine:'🌿',boss1:'👹',
+larva:'🐛',mantis:'🦗',beetle:'🪲',worm:'🪱',moth:'🦋',scorpion:'🦂',hydra:'🐍',centipede:'🐛',queen:'👑',boss2:'👹',
 flesh:'🫀',tentacle:'🦑',eye:'👁',fusion:'🧬',mimic:'🎭',walker:'🚶',screamer:'😱',bloater:'💣',boss3:'☢',
 shade:'👻',lurker:'🌑',wraith:'💀',voidbeast:'🐉',nightmare:'😈',watcher:'👁',voiddragon:'🐲',boss4:'👿',
-titan:'🪨',chaos:'🌀',deathknight:'⚔',horror:'👾',colossus:'🏛',plague:'☠',origin:'🧫',boss5:'❓'};
+titan:'🪨',chaos:'🌀',deathknight:'⚔',horror:'👾',colossus:'🏛',plague:'☠',origin:'🧫',boss5:'💀'};
 
 function saveCurrentForm(){
   const p=game.player;
