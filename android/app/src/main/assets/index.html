@@ -919,7 +919,7 @@ window.addEventListener('load',function(){
 <div class="cs-title">选 择 职 业</div>
 <div class="class-tabs">
   <div class="class-tab titan" onclick="selectClass('titan')" id="tab-titan">
-    <span class="ct-icon">🔷</span><span class="ct-name">TITAN</span><span class="ct-status" id="tab-status-titan"></span>
+    <span class="ct-icon">🗿</span><span class="ct-name">TITAN</span><span class="ct-status" id="tab-status-titan"></span>
   </div>
   <div class="class-tab ghost" onclick="selectClass('ghost')" id="tab-ghost">
     <span class="ct-icon">👻</span><span class="ct-name">GHOST</span><span class="ct-status" id="tab-status-ghost"></span>
@@ -1438,7 +1438,7 @@ const classBaseStats={
   ghost: {hp:100,maxHp:100,atk:14,def:4,fogRadius:7}
 };
 const classColors={
-  titan:{primary:'#4488cc',highlight:'#88ccff',glow:'#00c8ff',bg:'#0d1a2e',name:'泰坦',icon:'🔷'},
+  titan:{primary:'#4488cc',highlight:'#88ccff',glow:'#00c8ff',bg:'#0d1a2e',name:'泰坦',icon:'🗿'},
   ghost:{primary:'#cc44cc',highlight:'#ff88ff',glow:'#ff006e',bg:'#1a0d1a',name:'幽灵',icon:'👻'},
   swarm:{primary:'#44cc88',highlight:'#88ffcc',glow:'#00ffd0',bg:'#0d1a14',name:'虫群',icon:'🦗'}
 };
@@ -2094,7 +2094,7 @@ function renderCompareTable(){
   html+='<tr><td style="color:#888">操作</td><td>★★☆☆☆</td><td>★★★★☆</td><td>★★★☆☆</td></tr>';
   html+='<tr><td style="color:#888">后期</td><td>★★★★☆</td><td>★★★★★</td><td>★★★★★</td></tr>';
   html+='</table>';
-  html+='<div style="margin-top:10px;font-size:.75em;color:#666;text-align:center">推荐新手: 🔷泰坦 | 推荐高手: 👻幽灵</div>';
+  html+='<div style="margin-top:10px;font-size:.75em;color:#666;text-align:center">推荐新手: 🗿泰坦 | 推荐高手: 👻幽灵</div>';
   document.getElementById('compare-content').innerHTML=html;
 }
 
@@ -2162,7 +2162,7 @@ function getSaveInfo(){
     const d=JSON.parse(raw);
     const g=d.game;
     const cls=g.player.playerClass||'swarm';
-    const icons={titan:'🔷',ghost:'👻',swarm:'🦗'};
+    const icons={titan:'🗿',ghost:'👻',swarm:'🦗'};
     return {floor:g.floor,cls:cls,icon:icons[cls]||'❓',name:g.player.name,time:d.timestamp};
   }catch(e){return null;}
 }
@@ -2179,7 +2179,7 @@ const achievementDefs=[
   {id:'possess5',name:'收集者',desc:'附身5种不同生物',icon:'🎭'},
   {id:'possess10',name:'百变怪',desc:'附身10种不同生物',icon:'🌀'},
   {id:'no_death',name:'不死传说',desc:'不死亡通关25层',icon:'💀'},
-  {id:'titan_end',name:'不可移动的永恒',desc:'达成泰坦结局',icon:'🔷'},
+  {id:'titan_end',name:'不可移动的永恒',desc:'达成泰坦结局',icon:'🗿'},
   {id:'ghost_end',name:'不存在的自由',desc:'达成幽灵结局',icon:'👻'},
   {id:'swarm_end',name:'增殖的混沌',desc:'达成虫群结局',icon:'🦗'},
   {id:'hidden_end',name:'递归的观察者',desc:'达成隐藏结局',icon:'🔮'},
@@ -5179,38 +5179,84 @@ ctx.fillStyle='rgba(0,255,208,0.12)';
 ctx.beginPath();ctx.ellipse(cx,cy+r*1.1,r*0.8,r*0.2,0,0,Math.PI*2);ctx.fill();
 
 if(p.playerClass==='titan'){
-  // 泰坦：外骨骼甲壳 + 生物发光脉络
-  const tGrad=ctx.createRadialGradient(cx-r*0.15,cy-r*0.15,0,cx,cy,r);
-  tGrad.addColorStop(0,'rgba(255,255,255,0.9)');tGrad.addColorStop(0.15,cc.highlight);tGrad.addColorStop(0.6,cc.primary);tGrad.addColorStop(1,'#1a0e2e');
-  const half=r*0.85;
-  // 外骨骼描边（生物发光）
-  ctx.strokeStyle=cc.glow;ctx.lineWidth=2;ctx.lineJoin='round';ctx.shadowColor=cc.glow;ctx.shadowBlur=6;
-  ctx.beginPath();ctx.moveTo(cx-half,cy-half*0.6);ctx.lineTo(cx-half*0.7,cy-half);ctx.lineTo(cx+half*0.7,cy-half);ctx.lineTo(cx+half,cy-half*0.6);ctx.lineTo(cx+half,cy+half);ctx.lineTo(cx-half,cy+half);ctx.closePath();ctx.stroke();
-  ctx.shadowBlur=0;
-  // 填充
-  ctx.fillStyle=tGrad;
-  ctx.beginPath();ctx.moveTo(cx-half,cy-half*0.6);ctx.lineTo(cx-half*0.7,cy-half);ctx.lineTo(cx+half*0.7,cy-half);ctx.lineTo(cx+half,cy-half*0.6);ctx.lineTo(cx+half,cy+half);ctx.lineTo(cx-half,cy+half);ctx.closePath();ctx.fill();
-  // 甲片膜质微光
-  ctx.fillStyle='rgba(0,255,208,0.08)';ctx.fillRect(cx-half,cy-half,half*2,half*0.3);
-  // 生物脉络纹路
-  ctx.strokeStyle='rgba(0,255,208,0.2)';ctx.lineWidth=0.5;
-  ctx.beginPath();ctx.moveTo(cx-half*0.5,cy-half*0.5);ctx.quadraticCurveTo(cx,cy,cx+half*0.5,cy+half*0.3);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(cx+half*0.3,cy-half*0.4);ctx.quadraticCurveTo(cx,cy-half*0.1,cx-half*0.4,cy+half*0.2);ctx.stroke();
-  // 发光眼
+  // 泰坦：石块巨人（致敬 Dota1 山顶巨人 Tiny）
+  // 圆滚滚石块身体 + 粗短石臂石腿 + 岩石裂纹 + 生物朋克荧光边
+  const pulse2=Math.sin(Date.now()/700)*0.04+0.96;
+  // 生物荧光光晕
+  ctx.shadowColor=cc.glow;ctx.shadowBlur=10*pulse2;
+  // --- 身体：大圆石块（占主体）---
+  const bodyR=r*0.72;
+  const stoneGrad=ctx.createRadialGradient(cx-bodyR*0.25,cy-bodyR*0.2,bodyR*0.1,cx,cy+bodyR*0.1,bodyR);
+  stoneGrad.addColorStop(0,'#8ea8c8');stoneGrad.addColorStop(0.35,'#6688aa');stoneGrad.addColorStop(0.7,cc.primary);stoneGrad.addColorStop(1,'#1a2a3a');
+  ctx.fillStyle=stoneGrad;
+  ctx.beginPath();ctx.arc(cx,cy,bodyR,0,Math.PI*2);ctx.fill();
+  // 石块高光（左上方）
+  const hiGrad=ctx.createRadialGradient(cx-bodyR*0.35,cy-bodyR*0.38,0,cx-bodyR*0.35,cy-bodyR*0.38,bodyR*0.55);
+  hiGrad.addColorStop(0,'rgba(200,230,255,0.45)');hiGrad.addColorStop(1,'rgba(200,230,255,0)');
+  ctx.fillStyle=hiGrad;ctx.beginPath();ctx.arc(cx,cy,bodyR,0,Math.PI*2);ctx.fill();
+  // 岩石裂纹（石巨人纹理）
+  ctx.shadowBlur=0;ctx.strokeStyle='rgba(20,30,50,0.5)';ctx.lineWidth=1.0;
+  ctx.beginPath();ctx.moveTo(cx-bodyR*0.15,cy-bodyR*0.55);ctx.lineTo(cx+bodyR*0.05,cy-bodyR*0.1);ctx.lineTo(cx-bodyR*0.1,cy+bodyR*0.3);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx+bodyR*0.25,cy-bodyR*0.4);ctx.lineTo(cx+bodyR*0.45,cy+bodyR*0.15);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx-bodyR*0.5,cy+bodyR*0.05);ctx.lineTo(cx-bodyR*0.2,cy+bodyR*0.4);ctx.stroke();
+  // 荧光菌脉（生物朋克元素）
   ctx.shadowColor=cc.glow;ctx.shadowBlur=4;
-  ctx.fillStyle=cc.glow;
-  ctx.fillRect(cx-half*0.45,cy-half*0.35,half*0.25,half*0.18);
-  ctx.fillRect(cx+half*0.2,cy-half*0.35,half*0.25,half*0.18);
+  ctx.strokeStyle='rgba(0,255,208,0.18)';ctx.lineWidth=0.7;
+  ctx.beginPath();ctx.moveTo(cx-bodyR*0.3,cy-bodyR*0.2);ctx.quadraticCurveTo(cx+bodyR*0.1,cy+bodyR*0.1,cx+bodyR*0.35,cy+bodyR*0.35);ctx.stroke();
   ctx.shadowBlur=0;
-  ctx.fillStyle='#0d0818';
-  ctx.fillRect(cx-half*0.38,cy-half*0.32,half*0.12,half*0.12);
-  ctx.fillRect(cx+half*0.27,cy-half*0.32,half*0.12,half*0.12);
+  // --- 眼睛：两颗石缝中的荧光眼 ---
+  ctx.shadowColor=cc.glow;ctx.shadowBlur=6;
+  ctx.fillStyle=cc.glow;
+  ctx.beginPath();ctx.ellipse(cx-bodyR*0.22,cy-bodyR*0.12,bodyR*0.14,bodyR*0.1,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(cx+bodyR*0.22,cy-bodyR*0.12,bodyR*0.14,bodyR*0.1,0,0,Math.PI*2);ctx.fill();
+  ctx.shadowBlur=0;
+  ctx.fillStyle='#0d1a2e';
+  ctx.beginPath();ctx.ellipse(cx-bodyR*0.22,cy-bodyR*0.1,bodyR*0.06,bodyR*0.05,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(cx+bodyR*0.22,cy-bodyR*0.1,bodyR*0.06,bodyR*0.05,0,0,Math.PI*2);ctx.fill();
+  // --- 左臂：粗短石块（向左上伸出）---
+  const armW=bodyR*0.32,armH=bodyR*0.42;
+  const armGrad=ctx.createLinearGradient(cx-bodyR-armW,cy-bodyR*0.05,cx-bodyR,cy-bodyR*0.05);
+  armGrad.addColorStop(0,'#4a6880');armGrad.addColorStop(1,'#6688aa');
+  ctx.fillStyle=armGrad;
+  ctx.shadowColor=cc.glow;ctx.shadowBlur=5;
+  ctx.beginPath();
+  ctx.roundRect?ctx.roundRect(cx-bodyR-armW+bodyR*0.15,cy-bodyR*0.05-armH*0.5,armW,armH,4):
+  (ctx.rect(cx-bodyR-armW+bodyR*0.15,cy-bodyR*0.05-armH*0.5,armW,armH));
+  ctx.fill();
+  // 左臂裂纹
+  ctx.shadowBlur=0;ctx.strokeStyle='rgba(20,30,50,0.5)';ctx.lineWidth=0.7;
+  ctx.beginPath();ctx.moveTo(cx-bodyR+bodyR*0.05,cy-bodyR*0.2);ctx.lineTo(cx-bodyR-armW*0.3+bodyR*0.15,cy+bodyR*0.1);ctx.stroke();
+  // --- 右臂：粗短石块（向右上伸出）---
+  const armGrad2=ctx.createLinearGradient(cx+bodyR,cy-bodyR*0.05,cx+bodyR+armW,cy-bodyR*0.05);
+  armGrad2.addColorStop(0,'#6688aa');armGrad2.addColorStop(1,'#4a6880');
+  ctx.fillStyle=armGrad2;
+  ctx.shadowColor=cc.glow;ctx.shadowBlur=5;
+  ctx.beginPath();
+  ctx.roundRect?ctx.roundRect(cx+bodyR-bodyR*0.15,cy-bodyR*0.05-armH*0.5,armW,armH,4):
+  (ctx.rect(cx+bodyR-bodyR*0.15,cy-bodyR*0.05-armH*0.5,armW,armH));
+  ctx.fill();
+  // 右臂裂纹
+  ctx.shadowBlur=0;ctx.strokeStyle='rgba(20,30,50,0.5)';ctx.lineWidth=0.7;
+  ctx.beginPath();ctx.moveTo(cx+bodyR-bodyR*0.05,cy-bodyR*0.2);ctx.lineTo(cx+bodyR+armW*0.5-bodyR*0.15,cy+bodyR*0.1);ctx.stroke();
+  // --- 石腿（两条粗短矮腿）---
+  const legW=bodyR*0.28,legH=bodyR*0.32;
+  const legGrad=ctx.createLinearGradient(0,cy+bodyR*0.55,0,cy+bodyR*0.55+legH);
+  legGrad.addColorStop(0,'#6688aa');legGrad.addColorStop(1,'#3a5068');
+  ctx.fillStyle=legGrad;
+  ctx.shadowColor=cc.glow;ctx.shadowBlur=4;
+  ctx.beginPath();ctx.roundRect?ctx.roundRect(cx-bodyR*0.38,cy+bodyR*0.52,legW,legH,3):(ctx.rect(cx-bodyR*0.38,cy+bodyR*0.52,legW,legH));ctx.fill();
+  ctx.beginPath();ctx.roundRect?ctx.roundRect(cx+bodyR*0.1,cy+bodyR*0.52,legW,legH,3):(ctx.rect(cx+bodyR*0.1,cy+bodyR*0.52,legW,legH));ctx.fill();
+  ctx.shadowBlur=0;
+  // 外轮廓（荧光边框）
+  ctx.strokeStyle=cc.glow;ctx.lineWidth=1.5;ctx.shadowColor=cc.glow;ctx.shadowBlur=8*pulse2;
+  ctx.beginPath();ctx.arc(cx,cy,bodyR,0,Math.PI*2);ctx.stroke();
+  ctx.shadowBlur=0;
   // 装甲条（生物膜质）
   if(p.armor>0){
     ctx.fillStyle='rgba(0,200,255,0.4)';
     const armorPct=Math.min(1,p.armor/100);
-    ctx.fillRect(cx-half,cy+half+2,half*2*armorPct,3);
-    ctx.strokeStyle='rgba(0,255,208,0.3)';ctx.lineWidth=0.5;ctx.strokeRect(cx-half,cy+half+2,half*2,3);
+    ctx.fillRect(cx-bodyR,cy+bodyR*0.52+legH+3,bodyR*2*armorPct,3);
+    ctx.strokeStyle='rgba(0,255,208,0.3)';ctx.lineWidth=0.5;ctx.strokeRect(cx-bodyR,cy+bodyR*0.52+legH+3,bodyR*2,3);
   }
 }else if(p.playerClass==='ghost'){
   // 幽灵：半透明凝胶体 + 虹彩薄膜
@@ -6140,7 +6186,7 @@ function checkClassUnlock(){
   // 泰坦：虫群到达第10层
   if(!p.classUnlocked.titan&&p.playerClass==='swarm'&&game.floor>=10){
     p.classUnlocked.titan=true;
-    addMsg('🔷 泰坦职业已解锁！在祭坛可转换');
+    addMsg('🗿 泰坦职业已解锁！在祭坛可转换');
   }
   // 幽灵：死亡3次 或 泰坦到达第10层
   if(!p.classUnlocked.ghost){

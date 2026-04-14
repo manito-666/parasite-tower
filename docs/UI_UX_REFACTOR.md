@@ -224,38 +224,32 @@ const joystickConfig = {
 
 ## 视觉规范
 
-### 16色调色板
+### 16色调色板（生物朋克 × 新艺术运动）
 
 ```css
-/* 泰坦系（机械/金属） */
---titan-primary: #6688cc;
---titan-secondary: #4466aa;
---titan-accent: #88aaff;
---titan-dark: #334466;
+/* 泰坦系（有机甲壳 + 生物机械） */
+--titan-primary: #4488cc;
+--titan-secondary: #2266aa;
+--titan-accent: #88ccff;
+--titan-glow: #00c8ff;
 
-/* 幽灵系（虚无/灵体） */
---ghost-primary: #00ffcc;
---ghost-secondary: #00ccaa;
---ghost-accent: #66ffee;
---ghost-dark: #006655;
+/* 幽灵系（凝胶态 + 虹彩拖尾） */
+--ghost-primary: #cc44cc;
+--ghost-secondary: #aa22aa;
+--ghost-accent: #ff88ff;
+--ghost-glow: #ff006e;
 
-/* 虫群系（生物/有机） */
---swarm-primary: #cc6633;
---swarm-secondary: #aa4422;
---swarm-accent: #ff8844;
---swarm-dark: #663311;
+/* 虫群系（生物青 + 荧光触须） */
+--swarm-primary: #44cc88;
+--swarm-secondary: #22aa66;
+--swarm-accent: #88ffcc;
+--swarm-glow: #00ffd0;
 
-/* 人类系（原始形态） */
---human-primary: #cc9933;
---human-secondary: #aa7722;
---human-accent: #ffbb44;
---human-dark: #664411;
-
-/* 污染系（腐化/异变） */
---pollution-low: #0f0;
---pollution-mid: #ff0;
---pollution-high: #f00;
---pollution-critical: #a0f;
+/* 污染系（神经脉冲 + 细胞崩解） */
+--pollution-low: #00ffd0;    /* 生物青 */
+--pollution-mid: #ffcc00;    /* 警戒金 */
+--pollution-high: #ff8800;   /* 生物橙 */
+--pollution-critical: #ff006e; /* 细胞洋红 */
 ```
 
 ### 字体层级
@@ -656,4 +650,4 @@ class FormMemorySlot {
 
 ## 更新日志
 
-- 2026-04-02: 初版完成
+- 2026-04-14: 色彩系统升级为生物朋克 × 新艺术运动（荧光生物发光调色板）

@@ -418,40 +418,37 @@ const possessionKeyframes = {
 
 ---
 
-## 色彩系统（16色）
+## 色彩系统（生物朋克 × 新艺术运动）
 
 ```css
 :root {
-  /* 基础色 */
-  --black: #000;
-  --near-black: #111;
-  --dark-gray: #222;
-  --mid-gray: #666;
-  --light-gray: #aaa;
-  --white: #fff;
-  
-  /* 状态色 */
-  --health-green: #0f4;
-  --warning-yellow: #ff0;
-  --danger-orange: #f80;
-  --critical-red: #f04;
-  --info-blue: #48f;
-  
-  /* 派系色 */
-  --human-primary: #0f0;
-  --human-dark: #0a0;
-  --titan-primary: #48a;
-  --titan-dark: #246;
-  --ghost-primary: #a4a;
-  --ghost-dark: #525;
-  --swarm-primary: #4a4;
-  --swarm-dark: #2a2;
-  
-  /* 污染色 */
-  --pollution-safe: #0f4;
-  --pollution-warning: #ff0;
-  --pollution-danger: #f80;
-  --pollution-critical: #f00;
+  /* 底色 — 深紫黑有机腔体 */
+  --bio-bg-deep: #0d0818;
+  --bio-bg-panel: rgba(13,8,24,0.95);
+  --bio-bg-mid: #1a0e2e;
+
+  /* 荧光边框 */
+  --bio-border: rgba(0,255,208,0.3);
+  --bio-highlight: rgba(0,255,208,0.6);
+
+  /* 生物荧光发光色 */
+  --bio-cyan: #00ffd0;       /* 菌膜荧光 */
+  --bio-magenta: #ff006e;    /* 细胞核活性色 */
+  --bio-purple: #b455ff;     /* 神经脉冲 */
+  --bio-violet: #8844ff;     /* 深层神经 */
+  --bio-gold: #ffcc00;       /* 终焉金辉 */
+  --bio-orange: #ff8800;     /* 生物橙 */
+
+  /* 职业主色 */
+  --titan-primary: #4488cc;
+  --titan-highlight: #88ccff;
+  --titan-glow: #00c8ff;
+  --ghost-primary: #cc44cc;
+  --ghost-highlight: #ff88ff;
+  --ghost-glow: #ff006e;
+  --swarm-primary: #44cc88;
+  --swarm-highlight: #88ffcc;
+  --swarm-glow: #00ffd0;
 }
 ```
 
@@ -641,4 +638,4 @@ testPollutionEffects() {
 ## 更新日志
 
 - 2026-04-02: 初版完成，包含5个核心模块
-- 2026-04-02: 整合两版设计文档，统一规范
+- 2026-04-14: 色彩系统升级为生物朋克 × 新艺术运动风格（深紫黑 #0d0818 底色 + 荧光青/洋红/神经紫）
