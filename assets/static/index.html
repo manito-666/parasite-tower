@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>寄生魔塔</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,sans-serif;background:#0a0a0a;color:#c8c0b0;overflow:hidden;touch-action:none}
+#app{display:flex;flex-direction:column;height:100vh}
+#hud{background:rgba(20,10,10,0.95);padding:8px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #8b0000}
+.stat{font-size:0.9em;margin:0 8px}
+.stat b{color:#ff6b6b}
+#pollution-bar{width:150px;height:8px;background:#222;border-radius:4px;overflow:hidden;margin:0 8px}
+#pollution-fill{height:100%;background:linear-gradient(90deg,#0f0,#ff0,#f00);transition:width 0.3s}
+#game-area{flex:1;display:flex;justify-content:center;align-items:center;position:relative}
+canvas{border:2px solid #444;image-rendering:pixelated;cursor:pointer}
+#panel{position:absolute;bottom:10px;left:10px;background:rgba(15,5,5,0.95);border:2px solid #8b0000;border-radius:8px;padding:12px;max-width:300px;max-height:200px;overflow-y:auto}
+#messages{font-size:0.85em;line-height:1.4}
+.msg{margin:4px 0;opacity:0.9}
+#combat-panel{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(10,5,5,0.98);border:3px solid #ff0000;border-radius:12px;padding:20px;min-width:350px;z-index:100}
+#combat-panel.active{display:block}
+.combat-info{text-align:center;margin:10px 0}
+.combat-actions{display:flex;gap:10px;justify-content:center;margin-top:15px}
+.btn{padding:10px 20px;background:#8b0000;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:1em}
+.btn:hover{background:#a00}
+.btn:disabled{background:#444;cursor:not-allowed}
+#traits{display:flex;gap:8px;margin:8px 0}
+.trait{background:rgba(100,50,200,0.3);border:1px solid #6432c8;border-radius:4px;padding:4px 8px;font-size:0.8em}
+.trait.t1{border-color:#888}
+.trait.t2{border-color:#6432c8}
+.trait.t3{border-color:#ff6b00}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="hud">
+<div class="stat">HP: <b id="hp">100</b>/<span id="maxhp">100</span></div>
+<div class="stat">ATK: <b id="atk">5</b></div>
+<div class="stat">DEF: <b id="def">2</b></div>
+<div class="stat">污染: <b id="pollution">0</b>/100</div>
+<div id="pollution-bar"><div id="pollution-fill" style="width:0%"></div></div>
+<div class="stat">进化点: <b id="evo">0</b></div>
+<div class="stat">层: <b id="floor">1</b></div>
+</div>
+<div id="game-area">
+<canvas id="canvas" width="520" height="520"></canvas>
+<div id="panel"><div id="messages"></div></div>
+</div>
+<div id="combat-panel">
+<h3 style="text-align:center;color:#ff6b6b" id="target-name">目标</h3>
+<div class="combat-info">
+<div>HP: <span id="t-hp">0</span>/<span id="t-maxhp">0</span></div>
+<div>ATK: <span id="t-atk">0</span> | DEF: <span id="t-def">0</span></div>
+<div style="color:#ff8c00;margin-top:8px">预计受伤: <b id="t-dmg">0</b></div>
+<div style="color:#6432c8;margin-top:8px">附身成功率: <b id="t-rate">0</b>%</div>
+</div>
+<div id="traits"></div>
+<div class="combat-actions">
+<button class="btn" onclick="act('attack')">攻击</button>
+<button class="btn" id="btn-possess" onclick="act('possess')">附身</button>
+<button class="btn" onclick="closeCombat()">取消</button>
+</div>
+</div>
+</div>
+<script>
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+const T=40;
+let gs=null;
+
+async function init(){
+gs=await fetch('/api/game/new',{method:'POST'}).then(r=>r.json());
+render();
+}
+
+async function act(a){
+gs=await fetch('/api/game/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:a})}).then(r=>r.json());
+render();
+}
+
+function render(){
+if(!gs)return;
+ctx.fillStyle='#0a0a0a';
+ctx.fillRect(0,0,canvas.width,canvas.height);
+
+for(let y=0;y<13;y++){
+for(let x=0;x<13;x++){
+const tile=gs.tiles[y][x];
+if(tile===0)ctx.fillStyle='#1a1a1a';
+else if(tile===1)ctx.fillStyle='#2a2520';
+else if(tile===2)ctx.fillStyle='#4a6a4a';
+ctx.fillRect(x*T,y*T,T,T);
+ctx.strokeStyle='#111';
+ctx.strokeRect(x*T,y*T,T,T);
+}
+}
+
+gs.monsters.forEach(m=>{
+ctx.fillStyle=m.possessed?'#666':'#ff4444';
+ctx.fillRect(m.posX*T+5,m.posY*T+5,T-10,T-10);
+ctx.fillStyle='#fff';
+ctx.font='10px Arial';
+ctx.fillText(m.name.substring(0,2),m.posX*T+8,m.posY*T+20);
+});
+
+const p=gs.player;
+ctx.fillStyle='#6432c8';
+ctx.fillRect(p.posX*T+8,p.posY*T+8,T-16,T-16);
+
+document.getElementById('hp').textContent=p.hp;
+document.getElementById('maxhp').textContent=p.maxHp;
+document.getElementById('atk').textContent=p.atk;
+document.getElementById('def').textContent=p.def;
+document.getElementById('pollution').textContent=p.pollution;
+document.getElementById('pollution-fill').style.width=(p.pollution)+'%';
+document.getElementById('evo').textContent=p.evoPoints;
+document.getElementById('floor').textContent=gs.floorNum;
+
+const msgs=gs.messages.slice(-10);
+document.getElementById('messages').innerHTML=msgs.map(m=>'<div class="msg">'+m+'</div>').join('');
+
+if(gs.state==='combat'&&gs.target){
+showCombat(gs.target);
+}else{
+closeCombat();
+}
+}
+
+function showCombat(t){
+document.getElementById('combat-panel').classList.add('active');
+document.getElementById('target-name').textContent=t.name;
+document.getElementById('t-hp').textContent=t.hp;
+document.getElementById('t-maxhp').textContent=t.maxHp;
+document.getElementById('t-atk').textContent=t.atk;
+document.getElementById('t-def').textContent=t.def;
+document.getElementById('t-dmg').textContent=t.predictDamage;
+document.getElementById('t-rate').textContent=t.possessRate;
+document.getElementById('btn-possess').disabled=!t.canPossess;
+
+const traitsEl=document.getElementById('traits');
+traitsEl.innerHTML='';
+if(gs.player.traits){
+gs.player.traits.forEach(tr=>{
+const div=document.createElement('div');
+div.className='trait t'+tr.tier;
+div.textContent=tr.name;
+div.title=tr.desc;
+traitsEl.appendChild(div);
+});
+}
+}
+
+function closeCombat(){
+document.getElementById('combat-panel').classList.remove('active');
+}
+
+canvas.addEventListener('click',e=>{
+const rect=canvas.getBoundingClientRect();
+const x=Math.floor((e.clientX-rect.left)/T);
+const y=Math.floor((e.clientY-rect.top)/T);
+const dx=x-gs.player.posX;
+const dy=y-gs.player.posY;
+if(Math.abs(dx)>Math.abs(dy)){
+if(dx>0)act('right');
+else act('left');
+}else{
+if(dy>0)act('down');
+else act('up');
+}
+});
+
+document.addEventListener('keydown',e=>{
+if(e.key==='ArrowUp')act('up');
+if(e.key==='ArrowDown')act('down');
+if(e.key==='ArrowLeft')act('left');
+if(e.key==='ArrowRight')act('right');
+if(e.key===' ')act('stairs');
+});
+
+init();
+</script>
+</body>
+</html>

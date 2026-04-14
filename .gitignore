@@ -1,0 +1,17 @@
+# IDE
+.idea/
+
+# Go binary
+parasite-server
+
+# Android build outputs
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+
+# APK in root (build artifact)
+*.apk
+
+# OS
+.DS_Store
