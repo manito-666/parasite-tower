@@ -29,7 +29,7 @@ class MainActivity : AppCompatActivity() {
             settings.domStorageEnabled = true
             settings.allowFileAccess = true
             settings.allowContentAccess = true
-            settings.cacheMode = WebSettings.LOAD_DEFAULT
+            settings.cacheMode = WebSettings.LOAD_NO_CACHE
             settings.databaseEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
