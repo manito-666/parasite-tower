@@ -900,12 +900,20 @@ window.addEventListener('load',function(){
           document.getElementById('game-screen').classList.add('active');
           // 直接进入游戏，跳过职业选择
           try{updateClassTheme();}catch(e){}
-          try{assignFloorSignatures();}catch(e){}
+          // 仅当存档中没有签名映射时才重新分配（首次升级兼容）
+          try{if(!game._floorSignatureMap||Object.keys(game._floorSignatureMap).length===0)assignFloorSignatures();}catch(e){}
+          // 恢复当前楼层签名对象引用（JSON序列化会丢失函数）
+          try{
+            var _sigId=game._floorSignatureMap&&game._floorSignatureMap[game.floor];
+            game._floorSignature=(_sigId&&floorSignatures[_sigId])||null;
+          }catch(e){game._floorSignature=null;}
           try{loadAffinityFromStorage();}catch(e){}
           try{updatePollutionSkills();applyPollutionPassives();checkPollutionLock();}catch(e){}
           // 强制刷新形态栏（清除签名缓存以确保DOM重建）
           game._lastFormSig=null;
           try{updateFormBar();}catch(e){}
+          // 初始化Canvas长按（新游戏在init()中调用，继续游戏也需要）
+          try{initCanvasTap();}catch(e){}
           render();
         }
       };
@@ -2194,7 +2202,13 @@ initCanvasTap();
 function saveGame(){
   try{
     if(game.target)return; // 战斗中不存档
+    // 暂存含函数引用的字段（JSON.stringify会丢失函数）
+    var _sigBackup=game._floorSignature;
+    // 保存签名ID而非完整对象（函数不可序列化）
+    game._floorSignature=game._floorSignature?{id:game._floorSignature.id}:null;
     const saveData={version:1,timestamp:Date.now(),game:JSON.parse(JSON.stringify(game))};
+    // 恢复原始引用
+    game._floorSignature=_sigBackup;
     const g=saveData.game;
     g.target=null;g._deathChoiceActive=false;g._autoFight=false;
     g._combatRound=0;g._combatTotalDmg=0;g._skillEffects={};
@@ -2215,6 +2229,22 @@ function loadGame(){
     // 深拷贝覆盖game
     const saved=saveData.game;
     Object.keys(saved).forEach(k=>{game[k]=JSON.parse(JSON.stringify(saved[k]));});
+    // 安全清理：确保战斗状态不残留
+    game.target=null;
+    game._deathChoiceActive=false;
+    game._autoFight=false;
+    // 恢复楼层签名对象引用（存档只保存了ID，需从const恢复完整对象）
+    if(game._floorSignature&&game._floorSignature.id){
+      game._floorSignature=floorSignatures[game._floorSignature.id]||null;
+    }else{game._floorSignature=null;}
+    // 确保tiles有效（防止存档损坏导致卡死）
+    if(!game.tiles||game.tiles.length<13||!game.tiles[6]||game.tiles[6].length<13){
+      generateFloor();
+    }
+    // 确保下楼梯存在（必须有出路）
+    if(game.tiles[6]&&game.tiles[6][10]!==2){game.tiles[6][10]=2;}
+    // 确保上楼梯存在（2层以上）
+    if(game.floor>1&&game.tiles[6]&&game.tiles[6][2]!==6){game.tiles[6][2]=6;}
     return true;
   }catch(e){return false;}
 }
@@ -2921,8 +2951,8 @@ function goToFloor(targetFloor,dir,epCost){
   }
   closeEvent();
   saveFloorState();
-  // 退出当前楼层签名
-  exitFloorSignature();
+  // 退出当前楼层签名（try/catch保护，避免序列化丢失函数导致崩溃）
+  try{exitFloorSignature();}catch(e){game._floorSignature=null;game._sigFlags={};}
   game.floor=targetFloor;
   game._restUsedThisFloor=false;
   game.phantoms=[]; // 清除幻觉怪物，避免残留到新楼层
@@ -4252,7 +4282,7 @@ function enterFloorSignature(){
   const sig=floorSignatures[sigId];if(!sig)return;
   game._floorSignature=sig;
   game._sigFlags={};
-  sig.onEnter(game);
+  try{if(typeof sig.onEnter==='function')sig.onEnter(game);}catch(e){}
   showFloorSigBanner(sig);
   // 限时挑战：启动独立定时器（1秒更新，不依赖render帧）
   if(game._sigFlags.timerActive){
@@ -4262,7 +4292,7 @@ function enterFloorSignature(){
 }
 function exitFloorSignature(){
   if(!game._floorSignature)return;
-  game._floorSignature.onExit(game);
+  try{if(typeof game._floorSignature.onExit==='function')game._floorSignature.onExit(game);}catch(e){}
   game._floorSignature=null;
   game._sigFlags={};
   // 清除限时定时器
