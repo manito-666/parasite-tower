@@ -406,14 +406,13 @@ function startPollutionCombatEffects(pol, rate) {
     }
 
     if (pol >= 50) {
-      // >50%: 成功率偶尔闪烁错误值
+      // >50%: 视觉干扰（颜色闪烁），但不改变实际数值
       if (Math.random() > 0.6) {
-        const fakeRate = Math.floor(Math.random() * 95) + 5;
-        rateEl.textContent = fakeRate + '%';
         rateEl.style.color = '#f04';
+        rateEl.style.textShadow = '0 0 8px rgba(255,0,110,0.8)';
         setTimeout(() => {
-          if (rateEl) { rateEl.textContent = rate + '%'; rateEl.style.color = ''; }
-        }, 300);
+          if (rateEl) { rateEl.style.color = ''; rateEl.style.textShadow = ''; }
+        }, 250);
       }
     }
   }, 800);
@@ -473,9 +472,10 @@ function animatePortraits() {
 
         const possessBonus = (typeof getEvolutionEffect === 'function') ? (getEvolutionEffect('possessBonus') || 0) : 0;
         const traitPossessBonus = (typeof getTraitValue === 'function') ? (getTraitValue('possessBonus') || 0) : 0;
+        const sigPossessBonus = (game._sigFlags && game._sigFlags.possessBonus) || 0;
         const hpFactor = 1 - t.hp / t.maxHp * 0.6;
-        const rate = Math.min(95, Math.max(5, Math.floor((0.6 * hpFactor + possessBonus + traitPossessBonus) * 100)));
-        const fullRate = Math.min(95, Math.max(5, Math.floor((0.6 * 0.4 + possessBonus + traitPossessBonus) * 100)));
+        const rate = Math.min(95, Math.max(5, Math.floor((0.6 * hpFactor + possessBonus + traitPossessBonus + sigPossessBonus) * 100)));
+        const fullRate = Math.min(95, Math.max(5, Math.floor((0.6 * 0.4 + possessBonus + traitPossessBonus + sigPossessBonus) * 100)));
         const isPossessed = p.possessed[t.type] || t.possessed;
         _possActualRate = rate;
 
@@ -701,9 +701,10 @@ function animatePortraits() {
 
       const possessBonus = (typeof getEvolutionEffect === 'function') ? (getEvolutionEffect('possessBonus') || 0) : 0;
       const traitPossessBonus = (typeof getTraitValue === 'function') ? (getTraitValue('possessBonus') || 0) : 0;
+      const sigPossessBonus = (game._sigFlags && game._sigFlags.possessBonus) || 0;
       const hpFactor = 1 - t.hp / t.maxHp * 0.6;
-      const rate = Math.min(95, Math.max(5, Math.floor((0.6 * hpFactor + possessBonus + traitPossessBonus) * 100)));
-      const fullRate = Math.min(95, Math.max(5, Math.floor((0.6 * 0.4 + possessBonus + traitPossessBonus) * 100)));
+      const rate = Math.min(95, Math.max(5, Math.floor((0.6 * hpFactor + possessBonus + traitPossessBonus + sigPossessBonus) * 100)));
+      const fullRate = Math.min(95, Math.max(5, Math.floor((0.6 * 0.4 + possessBonus + traitPossessBonus + sigPossessBonus) * 100)));
       const isPossessed = p.possessed[t.type] || t.possessed;
       _possActualRate = rate;
 

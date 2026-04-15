@@ -1645,24 +1645,50 @@ boss5:{phases:[
 // 楼层签名定义（30个）
 // ================================================================
 const floorSignatures={
-// --- 简单签名 (改数值) ---
-hungerSwamp:{id:'hungerSwamp',name:'饥饿沼泽',desc:'停止不动会流失生命',icon:'🏚',color:'#4a2',
-  onEnter(g){g._sigFlags.lastMoveStep=0;g._sigFlags.stepCount=0;},onExit(g){}},
-weakField:{id:'weakField',name:'弱化场',desc:'所有ATK减半',icon:'⬇',color:'#888',
-  onEnter(g){g._sigFlags.atkMult=0.5;},onExit(g){}},
-armorBreak:{id:'armorBreak',name:'强化场',desc:'所有DEF减半',icon:'⚔',color:'#c44',
-  onEnter(g){g._sigFlags.defMult=0.5;},onExit(g){}},
+// --- 正面/中性签名 ---
 regenLand:{id:'regenLand',name:'再生之地',desc:'每步回复2%HP',icon:'🌿',color:'#0a4',
   onEnter(g){g._sigFlags.regenPerStep=0.02;},onExit(g){}},
-toxicFog:{id:'toxicFog',name:'毒雾弥漫',desc:'每步+1污染',icon:'☁',color:'#4a0',
-  onEnter(g){g._sigFlags.polPerStep=1;},onExit(g){}},
 goldenRain:{id:'goldenRain',name:'黄金雨',desc:'EP奖励×3',icon:'💰',color:'#fc0',
   onEnter(g){g._sigFlags.epMult=3;},onExit(g){}},
-barrenLand:{id:'barrenLand',name:'贫瘠之地',desc:'击杀无EP奖励',icon:'🏜',color:'#555',
-  onEnter(g){g._sigFlags.epMult=0;},onExit(g){}},
-giantify:{id:'giantify',name:'巨人化',desc:'怪物HP×2 ATK×1.5',icon:'🦣',color:'#a44',
-  onEnter(g){g.monsters.forEach(m=>{if(m.hp>0){m.maxHp*=2;m.hp*=2;m.atk=Math.floor(m.atk*1.5);}});},onExit(g){}},
-lilliput:{id:'lilliput',name:'小人国',desc:'怪物HP÷2 但数量翻倍',icon:'🐜',color:'#4af',
+peaceZone:{id:'peaceZone',name:'和平区',desc:'怪物不拦路 附身率+30%',icon:'🕊',color:'#8f8',
+  onEnter(g){g._sigFlags.peacefulMonsters=true;g._sigFlags.possessBonus=0.3;},onExit(g){}},
+xray:{id:'xray',name:'透视',desc:'全图可见',icon:'👁',color:'#ff0',
+  onEnter(g){g._sigFlags.fogRadius=99;},onExit(g){}},
+parasiteParadise:{id:'parasiteParadise',name:'寄生乐园',desc:'附身100%成功 但+20污染',icon:'🧬',color:'#00ffd0',
+  onEnter(g){g._sigFlags.autoParasite=true;},onExit(g){}},
+evoAccel:{id:'evoAccel',name:'进化加速',desc:'EP奖励×2',icon:'🧬',color:'#00ffd0',
+  onEnter(g){g._sigFlags.epMult=2;},onExit(g){}},
+bountyHunt:{id:'bountyHunt',name:'猎杀令',desc:'击杀悬赏目标+500EP',icon:'🎯',color:'#ff8800',
+  onEnter(g){
+    const alive=g.monsters.filter(m=>m.hp>0&&!m.type.includes('boss'));
+    if(alive.length>0){const t=alive[Math.floor(Math.random()*alive.length)];g._sigFlags.bountyId=t.id;g._sigFlags.bountyName=t.name;addMsg('🎯 猎杀令: 击杀 '+t.name+' 奖励500EP!');}
+  },onExit(g){}},
+resourceRace:{id:'resourceRace',name:'EP宝石',desc:'地图上散落EP宝石 踩到即获',icon:'💎',color:'#08f',
+  onEnter(g){
+    g._sigFlags.gems=[];
+    for(let i=0;i<5;i++){
+      let gx,gy,tries=0;
+      do{gx=1+Math.floor(Math.random()*11);gy=1+Math.floor(Math.random()*11);tries++;}
+      while(tries<20&&(g.tiles[gy][gx]!==1||(gx===g.player.x&&gy===g.player.y)));
+      if(tries<20)g._sigFlags.gems.push({x:gx,y:gy,value:50+Math.floor(Math.random()*100)});
+    }
+  },onExit(g){}},
+healSpring:{id:'healSpring',name:'治愈温泉',desc:'击杀怪物回复15%HP',icon:'♨',color:'#4af',
+  onEnter(g){g._sigFlags.healOnKill=0.15;},onExit(g){}},
+critZone:{id:'critZone',name:'暴击场',desc:'所有攻击暴击率+30%',icon:'💥',color:'#ff0',
+  onEnter(g){g._sigFlags.critBonus=0.3;},onExit(g){}},
+// --- 风险/回报签名（有代价但也有好处） ---
+hungerSwamp:{id:'hungerSwamp',name:'饥饿沼泽',desc:'停止不动流失HP 但移动回复1%HP',icon:'🏚',color:'#4a2',
+  onEnter(g){g._sigFlags.lastMoveStep=0;g._sigFlags.stepCount=0;g._sigFlags.regenPerStep=0.01;},onExit(g){}},
+toxicFog:{id:'toxicFog',name:'毒雾弥漫',desc:'每步+1污染 但怪物ATK-40%',icon:'☁',color:'#4a0',
+  onEnter(g){g._sigFlags.polPerStep=1;g.monsters.forEach(m=>{if(m.hp>0)m.atk=Math.floor(m.atk*0.6);});},onExit(g){}},
+fragileBarrier:{id:'fragileBarrier',name:'脆弱结界',desc:'所有伤害×2（双方均受影响）',icon:'💔',color:'#f08',
+  onEnter(g){g._sigFlags.dmgMult=2;},onExit(g){}},
+gamblerHeaven:{id:'gamblerHeaven',name:'赌徒天堂',desc:'伤害0.5x-2x随机',icon:'🎰',color:'#fc0',
+  onEnter(g){g._sigFlags.randomDmg=true;},onExit(g){}},
+giantify:{id:'giantify',name:'巨人化',desc:'怪物HP×2 ATK×1.5 但EP×2',icon:'🦣',color:'#a44',
+  onEnter(g){g._sigFlags.epMult=2;g.monsters.forEach(m=>{if(m.hp>0){m.maxHp*=2;m.hp*=2;m.atk=Math.floor(m.atk*1.5);}});},onExit(g){}},
+lilliput:{id:'lilliput',name:'小人国',desc:'怪物HP÷2 数量翻倍',icon:'🐜',color:'#4af',
   onEnter(g){
     g.monsters.forEach(m=>{if(m.hp>0){m.maxHp=Math.max(1,Math.floor(m.maxHp/2));m.hp=Math.min(m.hp,m.maxHp);}});
     const extras=[];
@@ -1676,51 +1702,6 @@ lilliput:{id:'lilliput',name:'小人国',desc:'怪物HP÷2 但数量翻倍',icon
     });
     g.monsters.push(...extras);
   },onExit(g){}},
-peaceZone:{id:'peaceZone',name:'和平区',desc:'怪物不拦路 附身率+30%',icon:'🕊',color:'#8f8',
-  onEnter(g){g._sigFlags.peacefulMonsters=true;g._sigFlags.possessBonus=0.3;},onExit(g){}},
-// --- 中等签名 (改机制) ---
-darkness:{id:'darkness',name:'黑暗降临',desc:'视野缩小到2格',icon:'🌑',color:'#222',minFloor:8,
-  onEnter(g){g._sigFlags.fogRadius=2;},onExit(g){}},
-xray:{id:'xray',name:'透视',desc:'全图可见',icon:'👁',color:'#ff0',
-  onEnter(g){g._sigFlags.fogRadius=99;},onExit(g){}},
-betrayal:{id:'betrayal',name:'背叛',desc:'一个备用形态叛变为敌人',icon:'🗡',color:'#ff006e',
-  onEnter(g){
-    for(let i=0;i<g.forms.length;i++){
-      if(g.forms[i]&&i!==g.currentForm&&!g._deadForms[i]&&g.forms[i].hp>0){
-        const f=g.forms[i];
-        let sx,sy,tries=0;
-        do{sx=2+Math.floor(Math.random()*9);sy=2+Math.floor(Math.random()*9);tries++;}
-        while(tries<20&&((sx===g.player.x&&sy===g.player.y)||g.tiles[sy][sx]!==1));
-        g.monsters.push({id:'betrayer_'+i,type:'betrayer',name:f.name+'(叛变)',hp:f.hp,maxHp:f.maxHp,atk:f.atk,def:f.def,traits:f.traits?f.traits.slice():[],color:'#ff006e',x:sx,y:sy,possessed:false});
-        g.forms[i]=null;g._deadForms[i]=true;
-        addMsg('⚠ '+f.name+' 的意识叛变了!');break;
-      }
-    }
-  },onExit(g){}},
-timeAccel:{id:'timeAccel',name:'时间加速',desc:'怪物每回合攻击2次',icon:'⏩',color:'#ff8800',minFloor:15,
-  onEnter(g){g._sigFlags.monsterDoubleHit=true;},onExit(g){}},
-fragileBarrier:{id:'fragileBarrier',name:'脆弱结界',desc:'所有伤害×2',icon:'💔',color:'#f08',
-  onEnter(g){g._sigFlags.dmgMult=2;},onExit(g){}},
-undeadLand:{id:'undeadLand',name:'不死之地',desc:'所有怪物自带不死',icon:'💀',color:'#808',
-  onEnter(g){g.monsters.forEach(m=>{if(m.hp>0&&m.traits&&!m.traits.includes('不死'))m.traits.push('不死');});},onExit(g){}},
-parasiteParadise:{id:'parasiteParadise',name:'寄生乐园',desc:'附身100%成功 但+20污染',icon:'🧬',color:'#00ffd0',
-  onEnter(g){g._sigFlags.autoParasite=true;},onExit(g){}},
-gamblerHeaven:{id:'gamblerHeaven',name:'赌徒天堂',desc:'伤害0.5x-2x随机',icon:'🎰',color:'#fc0',
-  onEnter(g){g._sigFlags.randomDmg=true;},onExit(g){}},
-// --- 复杂签名 (新行为) ---
-mime:{id:'mime',name:'哑剧',desc:'隐藏所有数字',icon:'🤫',color:'#ccc',minFloor:10,
-  onEnter(g){g._sigFlags.hideNumbers=true;},onExit(g){}},
-timedChallenge:{id:'timedChallenge',name:'限时挑战',desc:'60秒内必须下楼',icon:'⏱',color:'#ff006e',
-  onEnter(g){g._sigFlags.timerEnd=Date.now()+60000;g._sigFlags.timerActive=true;},onExit(g){g._sigFlags.timerActive=false;}},
-bountyHunt:{id:'bountyHunt',name:'猎杀令',desc:'击杀悬赏目标+500EP',icon:'🎯',color:'#ff8800',
-  onEnter(g){
-    const alive=g.monsters.filter(m=>m.hp>0&&!m.type.includes('boss'));
-    if(alive.length>0){const t=alive[Math.floor(Math.random()*alive.length)];g._sigFlags.bountyId=t.id;g._sigFlags.bountyName=t.name;addMsg('🎯 猎杀令: 击杀 '+t.name+' 奖励500EP!');}
-  },onExit(g){}},
-evoAccel:{id:'evoAccel',name:'进化加速',desc:'EP奖励×2',icon:'🧬',color:'#00ffd0',
-  onEnter(g){g._sigFlags.epMult=2;},onExit(g){}},
-formLock:{id:'formLock',name:'形态锁定',desc:'本层无法切换形态',icon:'🔒',color:'#888',
-  onEnter(g){g._sigFlags.noSwitch=true;},onExit(g){}},
 duel:{id:'duel',name:'单挑',desc:'仅1只精英 属性×3 奖励×5',icon:'⚔',color:'#ff0',
   onEnter(g){
     const alive=g.monsters.filter(m=>m.hp>0);if(alive.length===0)return;
@@ -1729,29 +1710,39 @@ duel:{id:'duel',name:'单挑',desc:'仅1只精英 属性×3 奖励×5',icon:'⚔
     best.maxHp*=3;best.hp=best.maxHp;best.atk*=3;best.def*=3;best.name='精英 '+best.name;
     g._sigFlags.eliteReward=5;
   },onExit(g){}},
-fogStalker:{id:'fogStalker',name:'迷雾追踪',desc:'隐形猎手在追踪你',icon:'👤',color:'#404',
-  onEnter(g){
-    let sx,sy;do{sx=1+Math.floor(Math.random()*11);sy=1+Math.floor(Math.random()*11);}while(g.tiles[sy][sx]!==1||(Math.abs(sx-g.player.x)<4&&Math.abs(sy-g.player.y)<4));
-    g._sigFlags.stalker={x:sx,y:sy,steps:0};
-  },onExit(g){}},
-resourceRace:{id:'resourceRace',name:'资源竞争',desc:'收集地图上的EP宝石',icon:'💎',color:'#08f',
-  onEnter(g){
-    g._sigFlags.gems=[];
-    for(let i=0;i<5;i++){
-      let gx,gy,tries=0;
-      do{gx=1+Math.floor(Math.random()*11);gy=1+Math.floor(Math.random()*11);tries++;}
-      while(tries<20&&(g.tiles[gy][gx]!==1||(gx===g.player.x&&gy===g.player.y)));
-      if(tries<20)g._sigFlags.gems.push({x:gx,y:gy,value:50+Math.floor(Math.random()*100)});
-    }
-  },onExit(g){}},
-pollutionStorm:{id:'pollutionStorm',name:'污染风暴',desc:'每10步+5污染 怪物ATK-30%',icon:'☢',color:'#4a0',
-  onEnter(g){g._sigFlags.polStormSteps=0;g.monsters.forEach(m=>{if(m.hp>0)m.atk=Math.floor(m.atk*0.7);});},onExit(g){}},
-judgment:{id:'judgment',name:'审判',desc:'必须从弱到强击杀 否则下只ATK×2',icon:'⚖',color:'#ff0',
+pollutionStorm:{id:'pollutionStorm',name:'污染风暴',desc:'每10步+5污染 怪物ATK-30% EP×1.5',icon:'☢',color:'#4a0',
+  onEnter(g){g._sigFlags.polStormSteps=0;g._sigFlags.epMult=1.5;g.monsters.forEach(m=>{if(m.hp>0)m.atk=Math.floor(m.atk*0.7);});},onExit(g){}},
+judgment:{id:'judgment',name:'审判',desc:'从弱到强击杀 每正确击杀+50EP',icon:'⚖',color:'#ff0',
   onEnter(g){
     const alive=g.monsters.filter(m=>m.hp>0).sort((a,b)=>a.atk-b.atk);
     g._sigFlags.killOrder=alive.map(m=>m.id);g._sigFlags.killIdx=0;g._sigFlags.killPenalty=false;
-    if(alive.length>0)addMsg('⚖ 审判: 必须按从弱到强的顺序击杀!');
-  },onExit(g){}}
+    g._sigFlags.judgmentBonus=50;
+    if(alive.length>0)addMsg('⚖ 审判: 从弱到强击杀可获得额外EP!');
+  },onExit(g){}},
+// --- 挑战签名（限制但有补偿） ---
+weakField:{id:'weakField',name:'弱化场',desc:'ATK减半 但DEF+50%',icon:'⬇',color:'#888',
+  onEnter(g){g._sigFlags.atkMult=0.5;g._sigFlags.defMult=1.5;},onExit(g){}},
+armorBreak:{id:'armorBreak',name:'破甲场',desc:'DEF减半 但ATK+50%',icon:'⚔',color:'#c44',
+  onEnter(g){g._sigFlags.defMult=0.5;g._sigFlags.atkMult=1.5;},onExit(g){}},
+darkness:{id:'darkness',name:'黑暗降临',desc:'视野缩小到3格 但附身率+20%',icon:'🌑',color:'#222',minFloor:8,
+  onEnter(g){g._sigFlags.fogRadius=3;g._sigFlags.possessBonus=0.2;},onExit(g){}},
+timeAccel:{id:'timeAccel',name:'时间加速',desc:'怪物攻击2次 但EP×2',icon:'⏩',color:'#ff8800',minFloor:15,
+  onEnter(g){g._sigFlags.monsterDoubleHit=true;g._sigFlags.epMult=2;},onExit(g){}},
+formLock:{id:'formLock',name:'形态锁定',desc:'无法切换形态 但ATK+25%',icon:'🔒',color:'#888',
+  onEnter(g){g._sigFlags.noSwitch=true;g._sigFlags.atkMult=1.25;},onExit(g){}},
+undeadLand:{id:'undeadLand',name:'不死之地',desc:'怪物自带不死 但击杀EP×2',icon:'💀',color:'#808',
+  onEnter(g){g._sigFlags.epMult=2;g.monsters.forEach(m=>{if(m.hp>0&&m.traits&&!m.traits.includes('不死'))m.traits.push('不死');});},onExit(g){}},
+barrenLand:{id:'barrenLand',name:'贫瘠之地',desc:'击杀无EP 但每步回复3%HP',icon:'🏜',color:'#555',
+  onEnter(g){g._sigFlags.epMult=0;g._sigFlags.regenPerStep=0.03;},onExit(g){}},
+mime:{id:'mime',name:'哑剧',desc:'隐藏所有数字 但怪物DEF-50%',icon:'🤫',color:'#ccc',minFloor:10,
+  onEnter(g){g._sigFlags.hideNumbers=true;g.monsters.forEach(m=>{if(m.hp>0)m.def=Math.floor(m.def*0.5);});},onExit(g){}},
+fogStalker:{id:'fogStalker',name:'迷雾追踪',desc:'隐形猎手追踪你 击杀奖励300EP',icon:'👤',color:'#404',
+  onEnter(g){
+    let sx,sy;do{sx=1+Math.floor(Math.random()*11);sy=1+Math.floor(Math.random()*11);}while(g.tiles[sy][sx]!==1||(Math.abs(sx-g.player.x)<4&&Math.abs(sy-g.player.y)<4));
+    g._sigFlags.stalker={x:sx,y:sy,steps:0};g._sigFlags.stalkerReward=300;
+  },onExit(g){}},
+timedChallenge:{id:'timedChallenge',name:'限时挑战',desc:'90秒内下楼奖励200EP',icon:'⏱',color:'#ff006e',
+  onEnter(g){g._sigFlags.timerEnd=Date.now()+90000;g._sigFlags.timerActive=true;g._sigFlags.timerReward=200;},onExit(g){g._sigFlags.timerActive=false;}}
 };
 
 const fragments={
@@ -2951,6 +2942,11 @@ function goToFloor(targetFloor,dir,epCost){
   }
   closeEvent();
   saveFloorState();
+  // 限时挑战奖励（计时器还在运行时下楼 = 成功）
+  if(game._sigFlags&&game._sigFlags.timerActive&&game._sigFlags.timerReward){
+    game.player.evoPoints+=game._sigFlags.timerReward;
+    addMsg('⏱ 限时挑战成功! +'+game._sigFlags.timerReward+'EP');
+  }
   // 退出当前楼层签名（try/catch保护，避免序列化丢失函数导致崩溃）
   try{exitFloorSignature();}catch(e){game._floorSignature=null;game._sigFlags={};}
   game.floor=targetFloor;
@@ -3504,7 +3500,8 @@ function calcPlayerDamage(p,m,round){
   let isCrit=false;
   const critChance=getTraitValue('critChance');
   const critMult=getTraitValue('critMult')||1.5;
-  if(critChance&&Math.random()<critChance){pDmg=Math.floor(pDmg*critMult);isCrit=true;}
+  const sigCritBonus=game._sigFlags.critBonus||0;
+  if((critChance||sigCritBonus)&&Math.random()<((critChance||0)+sigCritBonus)){pDmg=Math.floor(pDmg*critMult);isCrit=true;}
   if(game.player.pollutionPassives.doubleDamage&&Math.random()<0.1){pDmg*=2;isCrit=true;showTraitEffect('☢️ 污染暴击!','#ff8800');}
   if(game._loneWolf)pDmg=Math.floor(pDmg*1.3);
   if(game._skillEffects.guaranteedCrit){pDmg=Math.floor(pDmg*2);game._skillEffects.guaranteedCrit=false;isCrit=true;}
@@ -3524,7 +3521,9 @@ function calcPlayerDamage(p,m,round){
 function calcMonsterDamage(p,m,round){
   let mAtkMod=m.atk;
   if(hasTraitEffect('fearAura'))mAtkMod=Math.floor(mAtkMod*0.9);
-  let mDmg=Math.max(1,mAtkMod-p.def);
+  let pDefEff=p.def;
+  if(game._sigFlags.defMult)pDefEff=Math.floor(pDefEff*game._sigFlags.defMult);
+  let mDmg=Math.max(1,mAtkMod-pDefEff);
   if(m._stunned){mDmg=0;m._stunned=false;}
   const traitDmgReduce=getTraitValue('dmgReduce');
   if(traitDmgReduce)mDmg=Math.floor(mDmg*(1-traitDmgReduce));
@@ -3657,7 +3656,9 @@ function handleCombatResult(log,p,m,round){
     if(game._skillEffects.epBonus){game._skillEffects.epBonus=false;p.evoPoints+=50;addMsg('💰 掠夺! +50EP');}
     tryDropFragment(m);
     if(game._sigFlags.bountyId&&m.id===game._sigFlags.bountyId){p.evoPoints+=500;addMsg('🎯 悬赏完成 +500EP!');game._sigFlags.bountyId=null;}
-    if(game._sigFlags.killOrder){if(game._sigFlags.killOrder[game._sigFlags.killIdx]===m.id)game._sigFlags.killIdx++;else{game._sigFlags.killPenalty=true;addMsg('⚖ 审判: 击杀顺序错误! 下只敌人ATK×2');}}
+    if(game._sigFlags.stalkerReward&&m.id&&m.id.startsWith('stalker_')){p.evoPoints+=game._sigFlags.stalkerReward;addMsg('👤 暗影猎手击杀! +'+game._sigFlags.stalkerReward+'EP');}
+    if(game._sigFlags.killOrder){if(game._sigFlags.killOrder[game._sigFlags.killIdx]===m.id){game._sigFlags.killIdx++;if(game._sigFlags.judgmentBonus){p.evoPoints+=game._sigFlags.judgmentBonus;addMsg('⚖ 正确顺序! +'+game._sigFlags.judgmentBonus+'EP');}}else{game._sigFlags.killPenalty=true;addMsg('⚖ 审判: 击杀顺序错误! 下只敌人ATK×2');}}
+    if(game._sigFlags.healOnKill){const hk=Math.floor(p.maxHp*game._sigFlags.healOnKill);p.hp=Math.min(p.maxHp,p.hp+hk);addMsg('♨ 击杀治愈 +'+hk+'HP');}
     if(game.curseBlessing&&game.curseBlessing.mods.killHeal){const kh=Math.floor(m.maxHp*game.curseBlessing.mods.killHeal);p.hp=Math.min(p.maxHp,p.hp+kh);addMsg('+'+kh+'HP(击杀回复)');}
     log.innerHTML+='<div style="color:#00ffd0;font-weight:bold;margin-top:6px">胜利！+'+evoGain+'EP</div>';
     // 击杀爆裂粒子
@@ -4513,7 +4514,7 @@ function checkFloorTimer(){
   if(remain<=0){
     f.timerActive=false;if(el)el.style.display='none';
     if(game._floorTimerInterval){clearInterval(game._floorTimerInterval);game._floorTimerInterval=null;}
-    game.player.pollution+=30;addMsg('时间到! +30污染');
+    addMsg('⏱ 限时挑战结束！下楼时不再获得额外EP');f.timerReward=0;
   }
 }
 
@@ -7195,16 +7196,21 @@ function applyPollutionEffects(){
     game.statLieOffset={atk:0,def:0,hp:0};
   }
 
-  // 81-99%: 每5步随机传送（感官剥离免疫）
+  // 81-99%: 每8步随机传送（感官剥离免疫；靠近楼梯时不传送）
   if(pol>=81&&pol<100&&!game.player.pollutionSkills.sensoryStrip.active){
     if(!game._polStepCount)game._polStepCount=0;
     game._polStepCount++;
-    if(game._polStepCount%5===0){
-      let rx,ry;
-      do{rx=2+Math.floor(Math.random()*9);ry=2+Math.floor(Math.random()*9);}
-      while(game.tiles[ry][rx]!==1||game.monsters.some(m=>m.hp>0&&m.x===rx&&m.y===ry));
-      game.player.x=rx;game.player.y=ry;
-      addMsg('【错乱】空间扭曲，你被传送了！');
+    if(game._polStepCount%8===0){
+      // 距离楼梯2格内不传送，确保玩家能下楼
+      const px=game.player.x,py=game.player.y;
+      const nearStair=(Math.abs(px-10)+Math.abs(py-6)<=2)||(game.floor>1&&Math.abs(px-2)+Math.abs(py-6)<=2);
+      if(!nearStair){
+        let rx,ry;
+        do{rx=2+Math.floor(Math.random()*9);ry=2+Math.floor(Math.random()*9);}
+        while(game.tiles[ry][rx]!==1||game.monsters.some(m=>m.hp>0&&m.x===rx&&m.y===ry));
+        game.player.x=rx;game.player.y=ry;
+        addMsg('【错乱】空间扭曲，你被传送了！');
+      }
     }
   }
 
