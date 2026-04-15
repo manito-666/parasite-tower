@@ -6125,10 +6125,10 @@ if(game._pendingAltar&&!game.target){game._pendingAltar=false;setTimeout(()=>tri
 if(game._fragDirty!==false){updateFragmentBar();game._fragDirty=false;}
 // 更新诅咒标记（脏标记优化）
 if(game._curseDirty!==false){updateCurseBadge();game._curseDirty=false;}
-// 红点检查（每秒一次）
-if(!game._lastRedDotCheck||_now-game._lastRedDotCheck>1000){game._lastRedDotCheck=_now;if(typeof updateEvoRedDot==='function')updateEvoRedDot();}
 if(!_tileTextures)generateTileTextures();
 const _now=Date.now(); // 每帧缓存一次，避免多处 Date.now() 调用
+// 红点检查（每秒一次）
+if(!game._lastRedDotCheck||_now-game._lastRedDotCheck>1000){game._lastRedDotCheck=_now;if(typeof updateEvoRedDot==='function')updateEvoRedDot();}
 const W=canvas.width,H=canvas.height;
 ctx.fillStyle='#060406';ctx.fillRect(0,0,W,H);
 // 暴击震屏效果
