@@ -208,6 +208,8 @@ body{background:#0d0818;color:var(--white);font-family:'Courier New',Consolas,mo
 /* === 游戏画布 === */
 #game-area{flex:1;display:flex;align-items:center;justify-content:center;margin-top:calc(var(--top-bar-height, 78px) + 20px);margin-bottom:110px;position:relative;overflow:hidden;padding:0 4px}
 #game-canvas{display:block;image-rendering:pixelated;border:2px solid var(--bio-border);max-width:100%;height:auto;box-shadow:0 0 30px rgba(0,255,208,0.1),0 0 60px rgba(180,0,255,0.06),inset 0 0 60px rgba(13,8,24,0.5)}
+#canvas-wrapper{position:relative;display:inline-block;max-width:100%}
+#pixi-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2}
 
 /* === 底部控制栏 === */
 #control-bar{position:fixed;bottom:0;left:0;right:0;height:auto;min-height:110px;background:linear-gradient(0deg,#0d0818 70%,transparent);display:flex;justify-content:space-between;align-items:flex-end;padding:8px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));z-index:200}
@@ -1057,7 +1059,10 @@ window.addEventListener('load',function(){
 
 <!-- 游戏区域 -->
 <div id="game-area">
-  <canvas id="game-canvas" width="520" height="520"></canvas>
+  <div id="canvas-wrapper">
+    <canvas id="game-canvas" width="520" height="520"></canvas>
+    <canvas id="pixi-canvas" width="520" height="520"></canvas>
+  </div>
 </div>
 
 <!-- 消息面板(浮动) -->
@@ -1356,6 +1361,67 @@ const canvas=document.getElementById('game-canvas');
 const ctx=canvas.getContext('2d');
 const T=40; // 40px tiles for 13x13 = 520px
 canvas.width=13*T;canvas.height=13*T;
+
+// === PixiJS 渲染桥（Phase 1: 粒子 + 浮动文字）===
+let pixiApp=null,pixiParticleContainer=null,pixiTextContainer=null;
+let _pixiParticlePool=[],_pixiTextPool=[];
+let _pixiParticleTex=null;
+const PIXI_MAX_PARTICLES=500;
+const PIXI_MAX_TEXTS=20;
+function _parseColor(c){
+  if(typeof c==='number')return{rgb:c,a:1};
+  if(c&&c[0]==='#'){const h=c.length===4?c[1]+c[1]+c[2]+c[2]+c[3]+c[3]:c.slice(1);return{rgb:parseInt(h,16),a:1};}
+  const mh=c&&c.match(/hsla?\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*(?:,\s*([\d.]+))?\)/);
+  if(mh){const h=parseFloat(mh[1])/360,ss=parseFloat(mh[2])/100,l=parseFloat(mh[3])/100,a=mh[4]!==undefined?parseFloat(mh[4]):1;let r,g,b;if(ss===0){r=g=b=l;}else{const hue2rgb=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};const q=l<0.5?l*(1+ss):l+ss-l*ss;const p=2*l-q;r=hue2rgb(p,q,h+1/3);g=hue2rgb(p,q,h);b=hue2rgb(p,q,h-1/3);}return{rgb:(Math.round(r*255)<<16)|(Math.round(g*255)<<8)|Math.round(b*255),a};}
+  const m=c&&c.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\)/);
+  if(m)return{rgb:(parseInt(m[1])<<16)|(parseInt(m[2])<<8)|parseInt(m[3]),a:m[4]!==undefined?parseFloat(m[4]):1};
+  return{rgb:0xffffff,a:1};
+}
+function initPixi(){
+  if(typeof PIXI==='undefined')return;
+  const pxCanvas=document.getElementById('pixi-canvas');
+  if(!pxCanvas)return;
+  try{
+    pixiApp=new PIXI.Application({
+      view:pxCanvas,width:canvas.width,height:canvas.height,
+      backgroundAlpha:0,antialias:false,autoStart:false,
+      powerPreference:'low-power'
+    });
+    // 粒子纹理（8x8白色圆）
+    const g=new PIXI.Graphics();
+    g.beginFill(0xffffff);g.drawCircle(4,4,4);g.endFill();
+    _pixiParticleTex=pixiApp.renderer.generateTexture(g,{resolution:1,region:new PIXI.Rectangle(0,0,8,8)});
+    g.destroy();
+    // 粒子容器（批量渲染优化）
+    pixiParticleContainer=new PIXI.ParticleContainer(PIXI_MAX_PARTICLES,{vertices:false,position:true,rotation:false,uvs:false,tint:true});
+    pixiApp.stage.addChild(pixiParticleContainer);
+    // 浮动文字容器
+    pixiTextContainer=new PIXI.Container();
+    pixiApp.stage.addChild(pixiTextContainer);
+    // 预分配粒子池
+    for(let i=0;i<PIXI_MAX_PARTICLES;i++){
+      const s=new PIXI.Sprite(_pixiParticleTex);
+      s.anchor.set(0.5);s.visible=false;
+      s.blendMode=PIXI.BLEND_MODES.ADD;
+      s._life=0;s._vx=0;s._vy=0;s._decay=0;
+      pixiParticleContainer.addChild(s);
+      _pixiParticlePool.push(s);
+    }
+    // 预分配文字池
+    for(let i=0;i<PIXI_MAX_TEXTS;i++){
+      const t=new PIXI.Text('',{
+        fontSize:14,fontWeight:'bold',fontFamily:'Arial',
+        fill:'#ffffff',stroke:'#000000',strokeThickness:3,
+        dropShadow:true,dropShadowColor:'#000000',
+        dropShadowDistance:1,dropShadowBlur:2
+      });
+      t.anchor.set(0.5);t.visible=false;
+      t._life=0;t._vy=0;
+      pixiTextContainer.addChild(t);
+      _pixiTextPool.push(t);
+    }
+  }catch(e){console.warn('PixiJS init failed, fallback to Canvas 2D:',e);pixiApp=null;}
+}
 
 const game={
 player:{name:'寄生体',hp:120,maxHp:120,atk:8,def:6,pollution:0,evoPoints:0,x:6,y:6,traits:[],possessed:{},evolution:{titan:0,ghost:0,swarm:0},lastDir:'down',formType:'human',
@@ -2232,6 +2298,8 @@ function loadGame(){
     if(!game.tiles||game.tiles.length<13||!game.tiles[6]||game.tiles[6].length<13){
       generateFloor();
     }
+    if(!game.forms||!Array.isArray(game.forms))game.forms=[];
+    if(!game._deadForms||!Array.isArray(game._deadForms))game._deadForms=[];
     // 确保下楼梯存在（必须有出路）
     if(game.tiles[6]&&game.tiles[6][10]!==2){game.tiles[6][10]=2;}
     // 确保上楼梯存在（2层以上）
@@ -2798,7 +2866,7 @@ function convertClass(target){
 
   // POL转换
   let newPol=Math.floor(p.pollution*polSrcMod[src]*polDstMod[target]);
-  if(newPol>100){p.hp-=(newPol-100)*2;newPol=100;addMsg('污染溢出反噬！');}
+  if(newPol>100){p.hp=Math.max(1,p.hp-(newPol-100)*2);newPol=100;addMsg('污染溢出反噬！');}
   p.pollution=newPol;
 
   // ATK/DEF重置为目标职业基础
@@ -3673,6 +3741,7 @@ function handleCombatResult(log,p,m,round){
     checkAchievements();
     if(game._tutorialStage===0){game._tutorialStage=1;addMsg('<span style="color:#00ffd0;font-weight:bold">💡 附身解锁！击败敌人后可尝试🧬附身获取其能力</span>');setTimeout(checkTutorial,500);}
     game._combatRound=0;checkEvoUnlockHint();
+    game.target=null;
     setTimeout(()=>{closeCombat();checkFloorCleared();render();saveGame();},1200);
     return 'killed';
   }
@@ -3826,7 +3895,7 @@ if(game._playerStunned){
   log.innerHTML+='<div style="margin:2px 0;padding:3px;background:rgba(255,255,255,0.04)"><b>R'+round+'</b> <span style="color:#8844ff">眩晕!</span> 敌→<span style="color:#ff006e">'+stunDmg+'</span></div>';
   if(p.hp<=0){
     const aliveBackups=game.forms.filter((f,i)=>f&&i!==game.currentForm&&!game._deadForms[i]&&f.hp>0);
-    if(aliveBackups.length>0){game._autoFight=false;try{sounds.death();}catch(e){}setTimeout(()=>showDeathChoice(),500);return;}
+    if(aliveBackups.length>0){game._autoFight=false;try{sounds.death();}catch(e){}closeCombat();setTimeout(()=>showDeathChoice(),500);return;}
     try{sounds.death();}catch(e){}addMsg('宿主死亡...');setTimeout(()=>{closeCombat();triggerDeath();},1200);return;
   }
   showCombat();render();return;
@@ -3907,12 +3976,13 @@ openNegotiate();
 // === 附身谈判系统 ===
 function getNegBaseRate(){
 const t=game.target;
-const hpFactor=1-t.hp/t.maxHp*0.6;
+const hpFactor=t.maxHp>0?(1-t.hp/t.maxHp*0.6):0.6;
 const possessBonus=getEvolutionEffect('possessBonus');
 const traitPossessBonus=getTraitValue('possessBonus')||0;
 return Math.min(0.95,0.6*hpFactor+possessBonus+traitPossessBonus);
 }
 function openNegotiate(){
+if(document.getElementById('negotiate-overlay').classList.contains('active'))return;
 const t=game.target;
 const baseRate=getNegBaseRate();
 const basePercent=Math.round(baseRate*100);
@@ -4001,11 +4071,12 @@ if(game.curseBlessing&&game.curseBlessing.mods.possessBonus)finalRate=Math.min(0
 finalRate=Math.max(0.01,Math.min(0.95,finalRate));
 if(Math.random()<finalRate){
   // 谈判成功
-  if(affinityBonus)updateFormAffinity(t.type,'negotiate',1);
+  if(affinityBonus)updateFormAffinity(t.type,'possess',1);
   executePossessSuccess(fullHpInherit,extraPollution);
 }else{
   // 谈判失败 → 怪物狂暴
   try{sounds.possessFail();}catch(e){}
+  spawnPossessEffect(t.x||game.player.x,t.y||game.player.y,false);
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(255,0,0,0.3);z-index:9998;pointer-events:none';
   document.body.appendChild(overlay);
@@ -4033,7 +4104,7 @@ if(fullHpInherit){
 }else{
   const hpRatio=t.hp/t.maxHp;
   const inheritFactor=hpRatio>=0.8?1.0:hpRatio>=0.4?0.8:0.6;
-  p.maxHp=Math.floor(t.maxHp*inheritFactor);p.hp=Math.floor(t.hp*inheritFactor);
+  p.maxHp=Math.max(1,Math.floor(t.maxHp*inheritFactor));p.hp=Math.max(1,Math.floor(t.hp*inheritFactor));
 }
 p.atk=t.atk;p.def=t.def;p.traits=t.traits.slice();
 p.possessed[t.id]=true;
@@ -4042,7 +4113,7 @@ const allBonus=getTraitValue('allBonus');if(allBonus){p.atk+=allBonus;p.def+=all
 const pr=getEvolutionEffect('pollutionReduce');
 let polAdd=10+(extraPollution||0);
 const polResist=getTraitValue('polResist');if(polResist)polAdd=Math.floor(polAdd*(1-polResist));
-p.pollution+=pr?Math.max(0,polAdd-pr):polAdd;
+p.pollution=Math.min(100,p.pollution+(pr?Math.max(0,polAdd-pr):polAdd));
 p.name=t.name;p.formType=t.type;
 t.hp=0;
 game._combatRound=0;
@@ -4054,6 +4125,7 @@ createAnchor('possess');
 const formZone=monsterTemplates[t.type]?monsterTemplates[t.type].zone:1;
 const formEP=200+formZone*100;p.evoPoints+=formEP;
 showFragment(t.type);
+spawnPossessEffect(t.x||p.x,t.y||p.y,true);
 setTimeout(()=>{
   addMsg('✓ 附身成功！获得 '+t.name+' 的能力 +'+formEP+'EP');
   // 新手引导：首次附身 → 解锁形态面板
@@ -4539,7 +4611,7 @@ document.getElementById('t-def').textContent=t.def;
 const pDmg=Math.max(1,game.player.atk-t.def);const mDmg=Math.max(1,t.atk-game.player.def);
 const turns=Math.ceil(t.hp/pDmg);const totalDmg=mDmg*(turns-1);
 document.getElementById('t-dmg').textContent=totalDmg;
-const hpFactor=1-t.hp/t.maxHp*0.6;const possessBonus=getEvolutionEffect('possessBonus')||0;
+const hpFactor=t.maxHp>0?(1-t.hp/t.maxHp*0.6):0.6;const possessBonus=getEvolutionEffect('possessBonus')||0;
 const traitPB=(typeof getTraitValue==='function')?(getTraitValue('possessBonus')||0):0;
 const rate=Math.min(95,Math.max(5,Math.floor((0.6*hpFactor+possessBonus+traitPB)*100)));
 document.getElementById('t-rate').textContent=rate;
@@ -5499,6 +5571,12 @@ if(p.playerClass==='titan'){
   ctx.beginPath();ctx.arc(cx-r*0.2,cy-r*0.2,r*0.05,0,Math.PI*2);ctx.fill();
   ctx.beginPath();ctx.arc(cx+r*0.2,cy-r*0.2,r*0.05,0,Math.PI*2);ctx.fill();
   ctx.globalAlpha=1;
+  // 虹彩拖尾粒子
+  if(Math.random()<0.3){
+    const iH=(Date.now()/15)%360;
+    spawnParticle(cx+(Math.random()-0.5)*r,cy+r*0.3+Math.random()*r*0.5,'hsla('+iH+',100%,70%,0.3)',
+      (Math.random()-0.5)*0.5,0.3+Math.random()*0.5,0.025,1+Math.random(),2);
+  }
 }else{
   // 虫群：核心体 + 寄生触手 + 生物发光
   const swGrad=ctx.createRadialGradient(cx,cy,0,cx,cy,r*0.8);
@@ -5651,7 +5729,14 @@ ctx.shadowBlur=0;
 ctx.fillStyle='#0d0818';
 ctx.beginPath();ctx.arc(cx-s*0.08,cy-s*0.08,s/28,0,Math.PI*2);ctx.fill();
 ctx.beginPath();ctx.arc(cx+s*0.08,cy-s*0.08,s/28,0,Math.PI*2);ctx.fill();
-}else if(zone<=3){
+// T2 神经脉管（微动画贝塞尔曲线）
+ctx.strokeStyle='rgba(0,255,208,0.15)';ctx.lineWidth=0.7;ctx.shadowColor='#00ffd0';ctx.shadowBlur=2;
+const _t2n=Date.now()/1000;
+ctx.beginPath();ctx.moveTo(cx-s*0.25,cy-s*0.15);
+ctx.quadraticCurveTo(cx+Math.sin(_t2n)*s*0.05,cy+s*0.05,cx+s*0.2,cy+s*0.2);ctx.stroke();
+ctx.beginPath();ctx.moveTo(cx+s*0.2,cy-s*0.2);
+ctx.quadraticCurveTo(cx-Math.cos(_t2n*0.7)*s*0.04,cy,cx-s*0.15,cy+s*0.18);ctx.stroke();
+ctx.shadowBlur=0;
 // T3: 多眼甲壳生物 — 生物发光多眼 + 有机锯齿
 const mg3=ctx.createRadialGradient(cx,cy,0,cx,cy,s*0.4);
 mg3.addColorStop(0,'rgba(255,255,255,0.6)');mg3.addColorStop(0.4,mLight);mg3.addColorStop(1,color);
@@ -5679,6 +5764,18 @@ ctx.fillStyle='rgba(200,180,255,0.7)';
 for(let t=0;t<3;t++){
   ctx.fillRect(cx-s*0.18+t*s*0.12,cy+s*0.15,s*0.06,s*0.08);
 }
+// T3 甲壳脊骨纹理
+ctx.globalAlpha=0.2;ctx.strokeStyle=color;ctx.lineWidth=0.6;
+ctx.beginPath();ctx.moveTo(cx-h3*0.8,cy-h3*0.3);ctx.lineTo(cx+h3*0.8,cy-h3*0.3);ctx.stroke();
+ctx.beginPath();ctx.moveTo(cx-h3*0.7,cy+h3*0.2);ctx.lineTo(cx+h3*0.7,cy+h3*0.2);ctx.stroke();
+ctx.beginPath();ctx.moveTo(cx,cy-h3*0.9);ctx.lineTo(cx,cy+h3*0.8);ctx.stroke();
+ctx.globalAlpha=1;
+// T3 神经脉管
+ctx.strokeStyle='rgba(0,255,208,0.12)';ctx.lineWidth=0.7;ctx.shadowColor='#00ffd0';ctx.shadowBlur=2;
+const _t3n=Date.now()/900;
+ctx.beginPath();ctx.moveTo(cx-h3*0.6,cy-h3*0.5);
+ctx.quadraticCurveTo(cx+Math.sin(_t3n)*h3*0.1,cy,cx+h3*0.5,cy+h3*0.6);ctx.stroke();
+ctx.shadowBlur=0;
 }else if(zone<=4){
 // T4: 相位生物 — 半透明棱镜体 + 能量环
 ctx.globalAlpha=0.55+Math.sin(Date.now()/350)*0.2;
@@ -5924,55 +6021,130 @@ function renderStaticLayer(px,py,FOG_RADIUS,pol){
   sc.fillStyle=vig;sc.fillRect(0,0,W,H);
   _staticValid=true;
 }
-// === 浮动伤害数字（生物朋克风格）===
+// === 浮动伤害数字（PixiJS + Canvas 2D fallback）===
 const _floatingTexts=[];
 function spawnFloatingText(x,y,text,color){
-  _floatingTexts.push({x:x,y:y,text:text,color:color||'#fff',life:1.0,vy:-1.8,scale:1.3});
+  if(pixiApp){
+    const t=_pixiTextPool.find(p=>!p.visible);
+    if(!t)return;
+    t.visible=true;
+    t.text=String(text);
+    t.style.fill=color||'#ffffff';
+    t.x=x;t.y=y;
+    t.alpha=1;
+    t.scale.set(1.3);
+    t._life=1.0;t._vy=-1.8;
+  }else{
+    _floatingTexts.push({x:x,y:y,text:text,color:color||'#fff',life:1.0,vy:-1.8,scale:1.3});
+  }
   markDirty();
 }
 function updateAndDrawFloatingTexts(){
-  for(let i=_floatingTexts.length-1;i>=0;i--){
-    const ft=_floatingTexts[i];
-    ft.y+=ft.vy;ft.life-=0.022;
-    if(ft.scale>1)ft.scale-=0.02;
-    if(ft.life<=0){_floatingTexts[i]=_floatingTexts[_floatingTexts.length-1];_floatingTexts.pop();continue;}
-    ctx.globalAlpha=ft.life;
-    const fSize=Math.round(14*Math.max(1,ft.scale));
-    ctx.font='bold '+fSize+'px Arial';ctx.textAlign='center';
-    // 描边
-    ctx.strokeStyle='#000';ctx.lineWidth=3;ctx.lineJoin='round';
-    ctx.strokeText(ft.text,ft.x,ft.y);
-    ctx.fillStyle=ft.color;
-    ctx.fillText(ft.text,ft.x,ft.y);
+  if(pixiApp){
+    for(let i=0;i<_pixiTextPool.length;i++){
+      const t=_pixiTextPool[i];
+      if(!t.visible)continue;
+      t.y+=t._vy;t._life-=0.022;
+      if(t.scale.x>1)t.scale.set(Math.max(1,t.scale.x-0.02));
+      if(t._life<=0){t.visible=false;continue;}
+      t.alpha=t._life;
+    }
+  }else{
+    for(let i=_floatingTexts.length-1;i>=0;i--){
+      const ft=_floatingTexts[i];
+      ft.y+=ft.vy;ft.life-=0.022;
+      if(ft.scale>1)ft.scale-=0.02;
+      if(ft.life<=0){_floatingTexts[i]=_floatingTexts[_floatingTexts.length-1];_floatingTexts.pop();continue;}
+      ctx.globalAlpha=ft.life;
+      const fSize=Math.round(14*Math.max(1,ft.scale));
+      ctx.font='bold '+fSize+'px Arial';ctx.textAlign='center';
+      ctx.strokeStyle='#000';ctx.lineWidth=3;ctx.lineJoin='round';
+      ctx.strokeText(ft.text,ft.x,ft.y);
+      ctx.fillStyle=ft.color;
+      ctx.fillText(ft.text,ft.x,ft.y);
+    }
+    ctx.globalAlpha=1;
   }
-  ctx.globalAlpha=1;
 }
 
-// === 粒子系统（生物朋克风格）===
+// === 粒子系统（PixiJS + Canvas 2D fallback）===
 const particles=[];
 const MAX_PARTICLES=120;
-function spawnParticle(px,py,color,vx,vy,decay,size){
-  if(particles.length>=MAX_PARTICLES)return;
-  particles.push({x:px,y:py,color:color,vx:vx||0,vy:vy||0,life:1.0,decay:decay||0.025,size:size||2});
+function spawnParticle(px,py,color,vx,vy,decay,size,swirl){
+  if(pixiApp){
+    let s=_pixiParticlePool.find(p=>!p.visible);
+    if(!s){
+      // FIFO: 回收life最低的粒子
+      let minLife=Infinity,minIdx=-1;
+      for(let i=0;i<_pixiParticlePool.length;i++){
+        if(_pixiParticlePool[i]._life<minLife){minLife=_pixiParticlePool[i]._life;minIdx=i;}
+      }
+      if(minIdx>=0)s=_pixiParticlePool[minIdx];
+      else return;
+    }
+    s.visible=true;
+    s.x=px;s.y=py;
+    const pc=_parseColor(color);
+    s.tint=pc.rgb;
+    s.alpha=pc.a;
+    s.scale.set((size||2)/4);
+    s._vx=vx||0;s._vy=vy||0;
+    s._decay=decay||0.025;s._life=1;s._initAlpha=pc.a;
+    s._swirl=swirl||0;s._age=0;
+  }else{
+    if(particles.length>=MAX_PARTICLES)return;
+    particles.push({x:px,y:py,color:color,vx:vx||0,vy:vy||0,life:1.0,decay:decay||0.025,size:size||2,swirl:swirl||0,age:0});
+  }
 }
 function updateAndDrawParticles(){
-  for(let i=particles.length-1;i>=0;i--){
-    const p=particles[i];
-    p.x+=p.vx;p.y+=p.vy;p.life-=p.decay;
-    if(p.life<=0){particles[i]=particles[particles.length-1];particles.pop();continue;}
-    ctx.globalAlpha=p.life*0.7;
-    ctx.fillStyle=p.color;
-    ctx.beginPath();ctx.arc(p.x,p.y,p.size*p.life,0,Math.PI*2);ctx.fill();
+  if(pixiApp){
+    for(let i=0;i<_pixiParticlePool.length;i++){
+      const s=_pixiParticlePool[i];
+      if(!s.visible)continue;
+      s._life-=s._decay;
+      if(s._life<=0){s.visible=false;continue;}
+      s._age+=0.016;
+      if(s._swirl){
+        const sw=s._swirl*s._age;
+        s.x+=s._vx+Math.sin(sw)*s._swirl*0.5;
+        s.y+=s._vy+Math.cos(sw)*s._swirl*0.3;
+      }else{
+        s.x+=s._vx;s.y+=s._vy;
+      }
+      s.alpha=s._life*0.7*(s._initAlpha||1);
+    }
+  }else{
+    for(let i=particles.length-1;i>=0;i--){
+      const p=particles[i];
+      p.age=(p.age||0)+0.016;
+      p.life-=p.decay;
+      if(p.life<=0){particles[i]=particles[particles.length-1];particles.pop();continue;}
+      if(p.swirl){
+        const sw=p.swirl*p.age;
+        p.x+=p.vx+Math.sin(sw)*p.swirl*0.5;
+        p.y+=p.vy+Math.cos(sw)*p.swirl*0.3;
+      }else{
+        p.x+=p.vx;p.y+=p.vy;
+      }
+      ctx.globalAlpha=p.life*0.7;
+      ctx.fillStyle=p.color;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.size*p.life,0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=1;
   }
-  ctx.globalAlpha=1;
 }
 function spawnHitSparks(tx,ty,color,count){
+  const cx=tx*T+T/2,cy=ty*T+T/2;
   for(let i=0;i<count;i++){
-    spawnParticle(tx*T+T/2+(Math.random()-0.5)*12,ty*T+T/2+(Math.random()-0.5)*12,color,(Math.random()-0.5)*5,(Math.random()-0.5)*5,0.035+Math.random()*0.03,1.5+Math.random()*2);
+    const a=Math.random()*Math.PI*2;
+    const spd=3+Math.random()*4;
+    const vx=Math.cos(a)*spd,vy=Math.sin(a)*spd;
+    spawnParticle(cx+(Math.random()-0.5)*12,cy+(Math.random()-0.5)*12,color,vx,vy,0.035+Math.random()*0.03,1.5+Math.random()*2);
+    // 拖尾子粒子（更小更慢更快消失）
+    spawnParticle(cx+(Math.random()-0.5)*6,cy+(Math.random()-0.5)*6,color,vx*0.3,vy*0.3,0.06,0.8+Math.random()*0.5);
   }
-  // 生物朋克荧光火花
   for(let i=0;i<Math.min(count,4);i++){
-    spawnParticle(tx*T+T/2+(Math.random()-0.5)*8,ty*T+T/2+(Math.random()-0.5)*8,'rgba(255,255,200,0.8)',(Math.random()-0.5)*6,(Math.random()-0.5)*6,0.06,1+Math.random());
+    spawnParticle(cx+(Math.random()-0.5)*8,cy+(Math.random()-0.5)*8,'#ffffc8',(Math.random()-0.5)*6,(Math.random()-0.5)*6,0.06,1+Math.random());
   }
 }
 function spawnSkillBurst(px,py,color){
@@ -5983,7 +6155,35 @@ function spawnSkillBurst(px,py,color){
 }
 function spawnLootSparkle(px,py){
   for(let i=0;i<7;i++){
-    spawnParticle(px*T+T/2+(Math.random()-0.5)*12,py*T+T/2,'#fc0',(Math.random()-0.5)*1.5,-1.5-Math.random()*2.5,0.012,1.5+Math.random());
+    spawnParticle(px*T+T/2+(Math.random()-0.5)*12,py*T+T/2,'#ffcc00',(Math.random()-0.5)*1.5,-1.5-Math.random()*2.5,0.012,1.5+Math.random());
+  }
+}
+// 附身特效（成功/失败）
+function spawnPossessEffect(tx,ty,success){
+  const cx=tx*T+T/2,cy=ty*T+T/2;
+  if(success){
+    // 成功: 生物青→虹彩 螺旋内聚
+    for(let i=0;i<24;i++){
+      const a=i*Math.PI*2/24;
+      const dist=30+Math.random()*20;
+      const px=cx+Math.cos(a)*dist,py=cy+Math.sin(a)*dist;
+      const hue=Math.floor((i/24)*360);
+      spawnParticle(px,py,'hsla('+hue+',100%,70%,0.7)',-Math.cos(a)*2.5,-Math.sin(a)*2.5,0.018,2+Math.random(),5+Math.random()*3);
+    }
+    // 中心爆发
+    for(let i=0;i<12;i++){
+      spawnParticle(cx+(Math.random()-0.5)*8,cy+(Math.random()-0.5)*8,'rgba(0,255,208,0.8)',(Math.random()-0.5)*1,-1-Math.random()*2,0.03,1.5+Math.random());
+    }
+  }else{
+    // 失败: 洋红色向外爆散
+    for(let i=0;i<16;i++){
+      const a=i*Math.PI*2/16+Math.random()*0.3;
+      spawnParticle(cx,cy,'rgba(255,0,110,0.7)',Math.cos(a)*(3+Math.random()*3),Math.sin(a)*(3+Math.random()*3),0.04,2+Math.random()*1.5);
+    }
+    // 碎片
+    for(let i=0;i<8;i++){
+      spawnParticle(cx+(Math.random()-0.5)*10,cy+(Math.random()-0.5)*10,'rgba(180,85,255,0.5)',(Math.random()-0.5)*5,(Math.random()-0.5)*5,0.05,1+Math.random());
+    }
   }
 }
 
@@ -6164,7 +6364,9 @@ const W=canvas.width,H=canvas.height;
 ctx.fillStyle='#060406';ctx.fillRect(0,0,W,H);
 // 暴击震屏效果
 let _shook=false;
-if(game._shakeFrames>0){ctx.save();ctx.translate((Math.random()-0.5)*8,(Math.random()-0.5)*8);game._shakeFrames--;_shook=true;}
+if(game._shakeFrames>0){ctx.save();ctx.translate((Math.random()-0.5)*8,(Math.random()-0.5)*8);game._shakeFrames--;_shook=true;
+  if(pixiApp)pixiApp.stage.position.set((Math.random()-0.5)*8,(Math.random()-0.5)*8);
+}else if(pixiApp&&(pixiApp.stage.position.x!==0||pixiApp.stage.position.y!==0)){pixiApp.stage.position.set(0,0);}
 const pol=game.player.pollution;
 const px=game.player.x,py=game.player.y;
 const FOG_RADIUS=(game._sigFlags.fogRadius!==undefined?game._sigFlags.fogRadius:(classBaseStats[game.player.playerClass].fogRadius||5))+(game.player.pollutionPassives.seeHidden?2:0);
@@ -6179,25 +6381,30 @@ ctx.drawImage(_staticCanvas,0,0);
 const _zone=Math.min(5,Math.ceil(game.floor/10));
 const _zoneTint=[null,'rgba(0,255,208,0.03)','rgba(180,85,255,0.04)','rgba(0,200,166,0.03)','rgba(136,68,255,0.05)','rgba(255,0,110,0.04)'][_zone];
 if(_zoneTint){ctx.fillStyle=_zoneTint;ctx.fillRect(0,0,W,H);}
-// 环境尘埃粒子（生物朋克孢子/荧光粒子）
-if(Math.random()<0.22){
+// 环境尘埃粒子（生物朋克孢子/荧光粒子 — 螺旋上浮 + 污染密度联动）
+const _sporeChance=0.10+pol*0.003; // 10%~40% 随污染递增
+if(Math.random()<_sporeChance){
   const ax=(px+(Math.random()-0.5)*FOG_RADIUS*2)*T;
   const ay=(py+(Math.random()-0.5)*FOG_RADIUS*2)*T;
-  const dc=[null,'rgba(0,255,208,0.25)','rgba(180,85,255,0.3)','rgba(0,200,166,0.25)','rgba(136,68,255,0.3)','rgba(255,0,110,0.3)'][_zone]||'rgba(0,255,208,0.2)';
-  spawnParticle(ax,ay,dc,(Math.random()-0.5)*0.3,(Math.random()-0.5)*0.3-0.25,0.006+Math.random()*0.008,1+Math.random()*1.5);
+  const zoneColors=[null,'rgba(0,255,208,0.25)','rgba(180,85,255,0.3)','rgba(0,200,166,0.25)','rgba(136,68,255,0.3)','rgba(255,0,110,0.3)'];
+  // 高污染时颜色偏洋红
+  const dc=pol>60?'rgba(255,0,110,'+(0.15+pol*0.002)+')':zoneColors[_zone]||'rgba(0,255,208,0.2)';
+  const swirlStr=2+Math.random()*3; // 螺旋强度
+  spawnParticle(ax,ay,dc,(Math.random()-0.5)*0.3,(Math.random()-0.5)*0.3-0.25,0.006+Math.random()*0.008,1+Math.random()*1.5,swirlStr);
 }
-// 偶尔产生荧光粒子（生物氛围）
-if(Math.random()<0.05&&_zone>=2){
+// 偶尔产生荧光粒子（生物氛围 — 大颗螺旋孢子）
+if(Math.random()<0.05+pol*0.001&&_zone>=2){
   const fx=(px+(Math.random()-0.5)*FOG_RADIUS*1.5)*T;
   const fy=(py+(Math.random()-0.5)*FOG_RADIUS*1.5)*T;
-  spawnParticle(fx,fy,'rgba(0,255,208,0.5)',(Math.random()-0.5)*0.5,-0.5-Math.random()*0.5,0.02+Math.random()*0.02,0.8+Math.random());
+  spawnParticle(fx,fy,'rgba(0,255,208,0.5)',(Math.random()-0.5)*0.5,-0.5-Math.random()*0.5,0.02+Math.random()*0.02,0.8+Math.random(),4+Math.random()*2);
 }
 // 怪物（视野内才显示）
 game.monsters.forEach(m=>{
 if(m.hp<=0)return;
 const dist=Math.sqrt((m.x-px)*(m.x-px)+(m.y-py)*(m.y-py));
 if(dist>FOG_RADIUS)return;
-if(dist>FOG_RADIUS-2){ctx.globalAlpha=1-((dist-FOG_RADIUS+2)/2)*0.6;}
+const _monsterAlphaChanged=dist>FOG_RADIUS-2;
+if(_monsterAlphaChanged){ctx.globalAlpha=1-((dist-FOG_RADIUS+2)/2)*0.6;}
 // 残影效果（怪物刚移动过）
 if(m._prevX!==undefined&&m._moveTime&&_now-m._moveTime<300){
   const fade=1-(_now-m._moveTime)/300;
@@ -6272,10 +6479,96 @@ drawPlayer(p.x*T+2,p.y*T+2,T-4);
 updateAndDrawParticles();
 // 浮动伤害数字
 updateAndDrawFloatingTexts();
+// PixiJS 手动渲染（粒子+文字层）
+if(pixiApp)try{pixiApp.renderer.render(pixiApp.stage);}catch(e){}
 if(_shook)ctx.restore();
 
+// === 污染视觉后处理 ===
+ctx.globalAlpha=1;
+if(pol>40){
+  // 2b: 屏幕边缘腐蚀（污染>40%）
+  const edgeIntensity=Math.min(1,(pol-40)/60); // 0~1
+  const edgeW=8+edgeIntensity*20;
+  // 边缘黑暗渐变
+  const edgeGradL=ctx.createLinearGradient(0,0,edgeW,0);
+  edgeGradL.addColorStop(0,'rgba(13,8,24,'+(0.3+edgeIntensity*0.5)+')');edgeGradL.addColorStop(1,'transparent');
+  ctx.fillStyle=edgeGradL;ctx.fillRect(0,0,edgeW,H);
+  const edgeGradR=ctx.createLinearGradient(W,0,W-edgeW,0);
+  edgeGradR.addColorStop(0,'rgba(13,8,24,'+(0.3+edgeIntensity*0.5)+')');edgeGradR.addColorStop(1,'transparent');
+  ctx.fillStyle=edgeGradR;ctx.fillRect(W-edgeW,0,edgeW,H);
+  const edgeGradT=ctx.createLinearGradient(0,0,0,edgeW);
+  edgeGradT.addColorStop(0,'rgba(13,8,24,'+(0.3+edgeIntensity*0.5)+')');edgeGradT.addColorStop(1,'transparent');
+  ctx.fillStyle=edgeGradT;ctx.fillRect(0,0,W,edgeW);
+  const edgeGradB=ctx.createLinearGradient(0,H,0,H-edgeW);
+  edgeGradB.addColorStop(0,'rgba(13,8,24,'+(0.3+edgeIntensity*0.5)+')');edgeGradB.addColorStop(1,'transparent');
+  ctx.fillStyle=edgeGradB;ctx.fillRect(0,H-edgeW,W,edgeW);
+  // 有机腐蚀斑点（边缘随机洋红/紫色斑）
+  if(Math.random()<edgeIntensity*0.4){
+    const eColor=pol>70?'rgba(255,0,110,'+(0.05+edgeIntensity*0.1)+')':'rgba(180,85,255,'+(0.05+edgeIntensity*0.08)+')';
+    ctx.fillStyle=eColor;
+    for(let ei=0;ei<2+Math.floor(edgeIntensity*4);ei++){
+      const side=Math.floor(Math.random()*4);
+      let ex,ey;
+      if(side===0){ex=Math.random()*edgeW;ey=Math.random()*H;}
+      else if(side===1){ex=W-Math.random()*edgeW;ey=Math.random()*H;}
+      else if(side===2){ex=Math.random()*W;ey=Math.random()*edgeW;}
+      else{ex=Math.random()*W;ey=H-Math.random()*edgeW;}
+      ctx.beginPath();ctx.arc(ex,ey,3+Math.random()*6,0,Math.PI*2);ctx.fill();
+    }
+  }
+}
+if(pol>60){
+  // 2a: 色散效果 (Chromatic Aberration) — 每3帧执行一次降低性能开销
+  if(!window._caFrame)window._caFrame=0;
+  window._caFrame++;
+  if(window._caFrame%3===0){
+    const caShift=Math.floor(1+(pol-60)*0.075); // 1~4px
+    try{
+      const imgData=ctx.getImageData(0,0,W,H);
+      const d=imgData.data;
+      const out=ctx.createImageData(W,H);
+      const o=out.data;
+      for(let y=0;y<H;y++){
+        for(let x=0;x<W;x++){
+          const idx=(y*W+x)*4;
+          // R通道右移
+          const rx=Math.min(W-1,x+caShift);
+          o[idx]=d[(y*W+rx)*4];
+          // G通道不动
+          o[idx+1]=d[idx+1];
+          // B通道左移
+          const bx=Math.max(0,x-caShift);
+          o[idx+2]=d[(y*W+bx)*4+2];
+          o[idx+3]=d[idx+3];
+        }
+      }
+      ctx.putImageData(out,0,0);
+    }catch(e){}
+  }
+}
+if(pol>75){
+  // 2c: Glitch 故障效果 — 5%概率随机水平切片位移
+  if(!window._glitchFrames)window._glitchFrames=0;
+  if(window._glitchFrames>0){
+    window._glitchFrames--;
+  }else if(Math.random()<0.05){
+    window._glitchFrames=2+Math.floor(Math.random()*2); // 持续2-3帧
+    try{
+      const sliceCount=3+Math.floor(Math.random()*4);
+      const imgData=ctx.getImageData(0,0,W,H);
+      for(let si=0;si<sliceCount;si++){
+        const sy=Math.floor(Math.random()*H);
+        const sh=4+Math.floor(Math.random()*12);
+        const shift=Math.floor((Math.random()-0.5)*16);
+        if(shift===0)continue;
+        const slice=ctx.getImageData(0,sy,W,Math.min(sh,H-sy));
+        ctx.putImageData(slice,shift,sy);
+      }
+    }catch(e){}
+  }
+}
+
 // === 更新所有UI ===
-// 顶部栏 - 应用污染属性欺骗
 const lie=game.statLieOffset||{atk:0,def:0,hp:0};
 const displayHp=p.hp+lie.hp;
 const displayAtk=p.atk+lie.atk;
@@ -6486,6 +6779,7 @@ function combatSwitchForm(index){
   if(game._switchCount>=3)unlockAchievement('switch3');
   if(!game._combatRound)game._combatRound=0;
   if(!game._combatTotalDmg)game._combatTotalDmg=0;
+  if(!game.target){addMsg('无目标');return;}
   game._combatRound++;
   const p=game.player,m=game.target,round=game._combatRound;
   const log=document.getElementById('combat-log');
@@ -6503,7 +6797,7 @@ function combatSwitchForm(index){
   if(p.hp<0)p.hp=0;
   if(p.hp<=0){
     const aliveBackups=game.forms.filter((f,i)=>f&&i!==game.currentForm&&!game._deadForms[i]&&f.hp>0);
-    if(aliveBackups.length>0){game._autoFight=false;try{sounds.death();}catch(e){}setTimeout(()=>showDeathChoice(),500);return;}
+    if(aliveBackups.length>0){game._autoFight=false;try{sounds.death();}catch(e){}closeCombat();setTimeout(()=>showDeathChoice(),500);return;}
     try{sounds.death();}catch(e){}addMsg('宿主死亡...');setTimeout(()=>{closeCombat();triggerDeath();},1200);return;
   }
   showCombat();render();updateFormBar();
@@ -7102,7 +7396,8 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&typeof sav
 
 // 游戏主循环（脏标记帧跳过优化）
 function gameLoop(){
-  const hasAnim=particles.length>0||_floatingTexts.length>0||(game._shakeFrames>0)||(game.player&&game.player.pollution>=50);
+  const pixiActive=pixiApp&&(_pixiParticlePool.some(s=>s.visible)||_pixiTextPool.some(t=>t.visible));
+  const hasAnim=particles.length>0||_floatingTexts.length>0||(game._shakeFrames>0)||(game.player&&game.player.pollution>=50)||pixiActive;
   if(_renderDirty||hasAnim){
     render();
     _renderDirty=false;
@@ -7897,6 +8192,9 @@ function emergencyTakeover(){
 }
 
 function triggerDeath(){
+  if(game._triggerDeathActive)return;
+  game._triggerDeathActive=true;
+  game._inCombat=false;
   try{sounds.death();}catch(e){}
   const p=game.player;
   p.deathCount=(p.deathCount||0)+1;
@@ -7910,6 +8208,7 @@ function triggerDeath(){
     addMsg('// 死亡复活激活！保留当前形态，HP恢复30% //');
     if(game.target){game.target=null;}
     closeCombat();render();
+    game._triggerDeathActive=false;
     return;
   }
 
@@ -7978,6 +8277,7 @@ function triggerDeath(){
 function confirmRollback(){
   if(game._deathTimer)clearInterval(game._deathTimer);
   game._deathTimer=null;
+  game._triggerDeathActive=false;
   const overlay=document.getElementById('death-overlay');
   if(!overlay.classList.contains('active'))return; // 防止重复调用
   overlay.classList.remove('active');
@@ -7987,6 +8287,7 @@ function confirmRollback(){
 function deathReviveNow(){
   if(game._deathTimer)clearInterval(game._deathTimer);
   game._deathTimer=null;
+  game._triggerDeathActive=false;
   const overlay=document.getElementById('death-overlay');
   overlay.classList.remove('active');
   const p=game.player;
@@ -8067,6 +8368,11 @@ function rollbackToAnchor(){
   game._revived=false;
   game.phantoms=[];
   game.statLieOffset={atk:0,def:0,hp:0};
+  // 清理音频interval
+  if(_heartbeatInterval){clearInterval(_heartbeatInterval);_heartbeatInterval=null;}
+  if(_whisperInterval){clearInterval(_whisperInterval);_whisperInterval=null;}
+  if(_glitchInterval){clearInterval(_glitchInterval);_glitchInterval=null;}
+  if(_battleLogTimer){clearTimeout(_battleLogTimer);_battleLogTimer=null;}
   // 重置濒死转移状态
   game._deadForms=Array(game.forms.length).fill(false);
   game._loneWolf=false;
@@ -8219,6 +8525,7 @@ function closeFormLibrary(){
   document.getElementById('form-library-overlay').style.display='none';
 }
 </script>
+<script src="pixi.min.js" onload="initPixi()"></script>
 <script src="game-integration.js"></script>
 </body>
 </html>
