@@ -2,39 +2,15 @@ package api
 
 import (
 	"net/http"
+
 	"github.com/gin-gonic/gin"
 )
 
-var engine *WebEngine
-
+// SetupRoutes 仅暴露静态托管。游戏规则权威在 Android JS 端，
+// 历史 Web mirror 已删除（见 CLAUDE.md "规则权威：JS 唯一"）。
 func SetupRoutes(r *gin.Engine) {
-	r.POST("/api/game/new", handleNewGame)
-	r.POST("/api/game/action", handleAction)
 	r.Static("/static", "./assets/static")
 	r.GET("/", func(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, "/static/index.html")
 	})
-}
-
-func handleNewGame(c *gin.Context) {
-	engine = NewWebEngine()
-	c.JSON(http.StatusOK, engine.buildState())
-}
-
-func handleAction(c *gin.Context) {
-	if engine == nil {
-		engine = NewWebEngine()
-	}
-
-	var req struct {
-		Action string `json:"action"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	state := engine.HandleAction(req.Action)
-	c.JSON(http.StatusOK, state)
 }
