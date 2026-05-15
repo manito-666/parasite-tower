@@ -1,0 +1,10 @@
+android/
+*.apk
+*.jks
+.idea/
+.gradle/
+docs/
+*.md
+.git/
+parasite-server
+local.properties

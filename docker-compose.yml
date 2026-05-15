@@ -1,0 +1,25 @@
+services:
+  server:
+    build: .
+    container_name: parasite-tower
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    environment:
+      - GIN_MODE=release
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

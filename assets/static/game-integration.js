@@ -4,6 +4,25 @@
 // 色彩语义: 绿=增益 红=危险/负面 蓝=特殊机制 橙=战斗 灰=保守
 // ====================================================
 
+function getPossessRateColor(rate) {
+  if (rate <= 30) {
+    var t = rate / 30;
+    var r = 255;
+    var g = Math.round(60 * t);
+    return 'rgb(' + r + ',' + g + ',0)';
+  } else if (rate <= 60) {
+    var t = (rate - 30) / 30;
+    var r = Math.round(255 * (1 - t * 0.3));
+    var g = Math.round(60 + 180 * t);
+    return 'rgb(' + r + ',' + g + ',0)';
+  } else {
+    var t = (rate - 60) / 35;
+    var r = Math.round(180 * (1 - t));
+    var g = Math.round(240 + 15 * t);
+    return 'rgb(' + r + ',' + g + ',0)';
+  }
+}
+
 function getMonsterFlavorText(type) {
   const texts = {
     rat: '改造过的神经回路让它的眼中闪烁着不属于啮齿类的光芒',
@@ -287,11 +306,49 @@ function drawEncounterPortrait(type, c, x, y, size, breathing) {
     c.shadowBlur = 0;
     c.fillStyle = '#0d0818'; c.beginPath(); c.arc(cx, cy, s*0.04, 0, Math.PI*2); c.fill();
   }
-  // 名字首字（发光描边）
-  c.shadowColor = color; c.shadowBlur = 3;
-  c.fillStyle = 'rgba(255,255,255,0.85)'; c.font = 'bold ' + (w*0.24) + 'px Arial'; c.textAlign = 'center';
-  c.fillText(name[0], cx, cy + s*0.38);
-  c.shadowBlur = 0;
+  // 特性装饰（替代抽象文字）
+  const traits = tmpl ? (tmpl.traits || []) : [];
+  const traitStr = traits.join(',');
+  // 毒素：滴落的液滴
+  if (traitStr.indexOf('毒素') >= 0) {
+    c.fillStyle = 'rgba(0,255,80,0.6)';
+    c.beginPath(); c.moveTo(cx+s*0.2, cy+s*0.25); c.quadraticCurveTo(cx+s*0.22, cy+s*0.35, cx+s*0.2, cy+s*0.4);
+    c.quadraticCurveTo(cx+s*0.17, cy+s*0.35, cx+s*0.2, cy+s*0.25); c.fill();
+  }
+  // 狂暴：愤怒尖刺
+  if (traitStr.indexOf('狂暴') >= 0) {
+    c.strokeStyle = 'rgba(255,60,60,0.7)'; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(cx-s*0.3, cy-s*0.35); c.lineTo(cx-s*0.22, cy-s*0.48); c.lineTo(cx-s*0.14, cy-s*0.35); c.stroke();
+    c.beginPath(); c.moveTo(cx+s*0.14, cy-s*0.35); c.lineTo(cx+s*0.22, cy-s*0.48); c.lineTo(cx+s*0.3, cy-s*0.35); c.stroke();
+  }
+  // 吸血：血滴
+  if (traitStr.indexOf('吸血') >= 0) {
+    c.fillStyle = 'rgba(200,0,0,0.7)';
+    c.beginPath(); c.moveTo(cx-s*0.25, cy+s*0.15); c.quadraticCurveTo(cx-s*0.28, cy+s*0.28, cx-s*0.25, cy+s*0.32);
+    c.quadraticCurveTo(cx-s*0.22, cy+s*0.28, cx-s*0.25, cy+s*0.15); c.fill();
+  }
+  // 护甲：盾形标记
+  if (traitStr.indexOf('护甲') >= 0 || traitStr.indexOf('厚皮') >= 0) {
+    c.strokeStyle = 'rgba(200,200,255,0.5)'; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(cx, cy+s*0.15); c.lineTo(cx-s*0.12, cy+s*0.22); c.lineTo(cx-s*0.1, cy+s*0.32);
+    c.lineTo(cx, cy+s*0.38); c.lineTo(cx+s*0.1, cy+s*0.32); c.lineTo(cx+s*0.12, cy+s*0.22); c.closePath(); c.stroke();
+  }
+  // 再生：绿色脉动
+  if (traitStr.indexOf('再生') >= 0) {
+    const rp = 0.4 + 0.3*Math.sin(Date.now()/600);
+    c.strokeStyle = 'rgba(0,255,120,'+rp+')'; c.lineWidth = 1;
+    c.beginPath(); c.arc(cx, cy, s*0.42, 0, Math.PI*2); c.stroke();
+  }
+  // 相位：闪烁边框
+  if (traitStr.indexOf('相位') >= 0) {
+    const pp = 0.2 + 0.3*Math.abs(Math.sin(Date.now()/250));
+    c.strokeStyle = 'rgba(180,100,255,'+pp+')'; c.lineWidth = 1; c.setLineDash([3,3]);
+    c.beginPath(); c.arc(cx, cy, s*0.44, 0, Math.PI*2); c.stroke();
+    c.setLineDash([]);
+  }
+  // 底部名称（小字，不抢视觉）
+  c.fillStyle = 'rgba(255,255,255,0.7)'; c.font = (w*0.16) + 'px Arial'; c.textAlign = 'center';
+  c.fillText(name, cx, y + h - 2);
   c.restore();
 }
 
@@ -425,14 +482,8 @@ function stopPollutionCombatEffects() {
 // === 立绘呼吸动画循环 ===
 let _portraitRAF = null;
 function animatePortraits() {
-  try {
-    const pcv = document.getElementById('enc-player-cv');
-    const tcv = document.getElementById('enc-target-cv');
-    const t = game.target;
-    if (pcv) { const pc = pcv.getContext('2d'); pc.clearRect(0, 0, 48, 60); drawEncounterPortrait('player', pc, 1, 1, 46, true); }
-    if (tcv && t) { const tc = tcv.getContext('2d'); tc.clearRect(0, 0, 48, 60); drawEncounterPortrait(t.type, tc, 1, 1, 46, true); }
-  } catch(e) {}
-  if (document.getElementById('combat-overlay').classList.contains('active')) {
+  // emoji模式无需canvas动画，保留RAF用于污染效果等
+  if (document.getElementById('combat-overlay').classList.contains('active') || document.getElementById('negotiate-overlay').classList.contains('active')) {
     _portraitRAF = requestAnimationFrame(animatePortraits);
   }
 }
@@ -499,8 +550,8 @@ function animatePortraits() {
         const gainTraits = t.traits.filter(tr => !pTraits.has(tr));
         const loseTraits = p.traits.filter(tr => !tTraits.has(tr));
 
-        // 成功率颜色（填充度为主，颜色辅助）
-        const rateColor = rate < 30 ? '#f04' : rate < 60 ? '#ff0' : '#0f4';
+        // 成功率颜色（平滑渐变：红→黄→绿）
+        const rateColor = getPossessRateColor(rate);
 
         box.innerHTML = `
           <div class="enc-header">
@@ -511,7 +562,7 @@ function animatePortraits() {
           <div class="enc-vs-area">
             <div class="enc-card enc-player-card">
               <div class="enc-card-label">当前</div>
-              <canvas id="enc-player-cv" width="48" height="60"></canvas>
+              <div id="enc-player-icon" style="font-size:36px;text-align:center;line-height:50px;height:50px">${(typeof formIcons!=='undefined'&&formIcons[p.formType||'human'])||'👤'}</div>
               <div class="enc-card-stats">
                 <div>HP <b>${p.hp}</b>/<small>${p.maxHp}</small></div>
                 <div>ATK <b>${p.atk}</b> DEF <b>${p.def}</b></div>
@@ -520,7 +571,7 @@ function animatePortraits() {
             <div class="enc-vs-badge">VS</div>
             <div class="enc-card enc-target-card">
               <div class="enc-card-label" data-real="目标">目标</div>
-              <canvas id="enc-target-cv" width="48" height="60"></canvas>
+              <div id="enc-target-icon" style="font-size:36px;text-align:center;line-height:50px;height:50px">${(typeof formIcons!=='undefined'&&formIcons[t.type])||(typeof icons!=='undefined'&&icons[t.type])||'❓'}</div>
               <div class="enc-card-stats">
                 <div>HP <b>${t.hp}</b>/<small>${t.maxHp}</small></div>
                 <div>ATK <b>${t.atk}</b> DEF <b>${t.def}</b></div>
@@ -708,7 +759,7 @@ function animatePortraits() {
       const isPossessed = p.possessed[t.type] || t.possessed;
       _possActualRate = rate;
 
-      const rateColor = rate < 30 ? '#f04' : rate < 60 ? '#ff0' : '#0f4';
+      const rateColor = getPossessRateColor(rate);
 
       // 更新成功率大数字
       const rateDisplay = document.getElementById('enc-rate-display');
@@ -771,11 +822,7 @@ function animatePortraits() {
       const prb = document.getElementById('possess-rate-bottom');
       if (prb) prb.textContent = rate + '%';
 
-      // 重绘立绘（更新目标HP条）
-      try {
-        const tcv = document.getElementById('enc-target-cv');
-        if (tcv) { const tc = tcv.getContext('2d'); tc.clearRect(0, 0, 48, 60); drawEncounterPortrait(t.type, tc, 1, 1, 46, true); }
-      } catch(e) {}
+      // emoji模式无需重绘立绘
 
       // 污染战斗效果
       startPollutionCombatEffects(pol, rate);
